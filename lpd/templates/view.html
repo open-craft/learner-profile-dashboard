@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div id="view-lpd">
+    <div class="lpd">{{ learnerprofiledashboard }}</div>
+    <ul class="links">
+      <li><a href="{% url "lpd:edit" learnerprofiledashboard.id %}">edit</a></li>
+      <li><a href="{% url "lpd:list" %}">see all</a></li>
+    </ul>
+  </div>
+{% endblock content %}

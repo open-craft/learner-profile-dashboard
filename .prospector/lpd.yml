@@ -1,0 +1,42 @@
+autodetect: false
+doc-warnings: false
+dodgy:
+  disable: []
+  enable: []
+  options: {}
+  run: null
+ignore-paths: ['migrations']
+ignore-patterns: [^README.md$, ^setup.py$, ^app/local_settings.py$, (^|/)\..+]
+max-line-length: null
+mccabe:
+  disable: []
+  enable: []
+  options: {max-complexity: 10}
+  run: null
+member-warnings: false
+output-format: null
+pep257:
+  disable: []
+  enable: []
+  options: {}
+  run: false
+pep8:
+  disable: [E262, E265]
+  enable: []
+  options: {max-line-length: 120, single-line-if-stmt: n}
+  run: null
+profile-validator:
+  disable: []
+  enable: []
+  options: {}
+  run: null
+pyflakes:
+  disable:
+    - F841  # "local variable is assigned to but never used" - pylint has an equivalent check, and the pylint version correctly ignores names like 'dummy'
+  enable: []
+  options: {}
+  run: null
+requirements: []
+strictness: 'veryhigh'
+test-warnings: true
+uses: []

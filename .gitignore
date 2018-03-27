@@ -1,0 +1,7 @@
+*.log
+*.py[cdo]
+*.sqlite
+/media
+/static
+.coverage
+/app/local_settings.py

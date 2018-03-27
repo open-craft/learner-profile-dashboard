@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <div id="list-lpd">
+    {% for lpd in object_list %}
+      <div id="lpd-{{ lpd.id }}" class="lpd">
+        <div class="lpd">{{ lpd }}</div>
+        <ul class="links">
+          <li><a href="{% url "lpd:edit" lpd.id %}">edit</a></li>
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+    <div class="pagination columns">
+      <div class="prev">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}">prev</a>
+        {% else %}
+          prev
+        {% endif %}
+      </div>
+      <div class="current">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+      </div>
+      <div class="next">
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}">next</a>
+        {% else %}
+          next
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+{% endblock content %}

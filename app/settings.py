@@ -32,7 +32,8 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'app',
     'lpd',
-    'django_lti_tool_provider'
+    'django_lti_tool_provider',
+    'ordered_model',
 )
 
 MIDDLEWARE_CLASSES = (

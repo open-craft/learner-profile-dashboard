@@ -1,27 +1,30 @@
-from django.views.generic import DetailView, ListView, CreateView, RedirectView, UpdateView
-from django.core.urlresolvers import reverse
+from django.views.generic import DetailView, ListView, CreateView, UpdateView
+from django.views.generic.base import TemplateView
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 
 from lpd.models import LearnerProfileDashboard, LearnerProfileDashboardForm
 
 
+class LPDView(TemplateView):
+    """
+    Display LPD.
+    """
+    template_name = 'view.html'
+
+    def get_context_data(self, **kwargs):
+        """
+        Collect necessary information for displaying LPD.
+        """
+        context = super(LPDView, self).get_context_data(**kwargs)
+        lpd = LearnerProfileDashboard.objects.get()
+        context['lpd'] = lpd
+        return context
+
+
 class LearnerProfileDashboardView(object):
     model = LearnerProfileDashboard
     form_class = LearnerProfileDashboardForm
-
-
-class ShowOrCreateLearnerProfileDashboardView(LearnerProfileDashboardView, RedirectView):
-    permanent = False
-
-    def get_redirect_url(self, *args, **kwargs):  # pylint: disable=inconsistent-return-statements
-        lpd = LearnerProfileDashboard.objects.values_list('id', flat=True)
-        if len(lpd) > 1:
-            return reverse('lpd:list')
-        elif len(lpd) == 1:
-            return reverse('lpd:view', kwargs=dict(pk=lpd[0]))
-        elif len(lpd) == 0:  # pylint: disable=len-as-condition
-            return reverse('lpd:add')
 
 
 class ShowLearnerProfileDashboardView(LearnerProfileDashboardView, DetailView):

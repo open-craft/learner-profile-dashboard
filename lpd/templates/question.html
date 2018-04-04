@@ -1,0 +1,82 @@
+{% load lpd_filters %}
+
+<div class="question">
+
+  <p>{{ question.question_text }}</p>
+
+  {% if question.type == 'essay' %}
+    <textarea></textarea>
+  {% endif %}
+
+  {% if question.type == 'short-answer' %}
+    <input type="text" />
+  {% endif %}
+
+  {% if question.type == 'mcq' %}
+    <div class="mc-options">
+      {% for answer_option in question.get_answer_options %}
+        <label>
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text" name="{{ question.id }}-custom-input" />
+          {% endif %}
+          <input type="radio" name="{{ question.id }}-options" value="{{ answer_option.id }}" />
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if question.type == 'mrq' %}
+    <div class="mc-options">
+      {% for answer_option in question.get_answer_options %}
+        <label>
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text" name="{{ question.id }}-custom-input" />
+          {% endif %}
+          <input type="checkbox" name="{{ question.id }}-options" value="{{ answer_option.id }}" />
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if question.type == 'ranking' %}
+    <div class="ranking-options">
+      {% for answer_option in question.get_answer_options %}
+        <div>
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text" name="{{ question.id }}-custom-input" />
+          {% endif %}
+          {% for i in question.number_of_options_to_rank|range %}
+            <label>
+              {{ i }}
+              <input type="radio" name="{{ answer_option.id }}-ranks" value="{{ i }}" />
+            </label>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if question.type == 'likert' %}
+    <div class="likert-options">
+      <p>This is a {{ question.answer_option_range }}-point scale from {{ question.range_min_text }} to {{ question.range_max_text }}.</p>
+      {% for answer_option in question.get_answer_options %}
+        <div>
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text" name="{{ question.id }}-custom-input" />
+          {% endif %}
+          {% for i in question.answer_option_range|range %}
+            <label>
+              {{ i }}
+              <input type="radio" name="{{ answer_option.id }}-ranks" value="{{ i }}" />
+            </label>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+</div>

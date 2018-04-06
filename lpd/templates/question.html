@@ -51,7 +51,7 @@
           {% for i in question.number_of_options_to_rank|range %}
             <label>
               {{ i }}
-              <input type="radio" name="{{ answer_option.id }}-ranks" value="{{ i }}" />
+              <input type="radio" name="{{ answer_option.id }}-ranks" value="{{ i }}" class="option-rank" />
             </label>
           {% endfor %}
         </div>

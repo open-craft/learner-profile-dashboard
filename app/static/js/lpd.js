@@ -27,6 +27,21 @@ $(document).ready(function() {
 
     };
 
+    var uncheckSameValueRanks = function(rank) {
+        var $rank = $(rank),
+            rankValue = $rank.val(),
+            $optionGroup = $rank.parents('.ranking-options'),
+            $sameValueRanks = $optionGroup.find('.option-rank').not(rank).filter(function(i) {
+                return $(this).val() === rankValue;
+            });
+
+        $sameValueRanks.each(function(i, sameValueRank) {
+            if ($(sameValueRank).is(':checked')) {
+                $(sameValueRank).prop('checked', false);
+            }
+        });
+    };
+
 
     // Event handlers
 
@@ -42,6 +57,10 @@ $(document).ready(function() {
     $('.mr-option').click(function(e) {
         var $optionGroup = $(this).parents('.mr-options');
         disableOptions($optionGroup);
+    });
+
+    $('.option-rank').click(function(e) {
+        uncheckSameValueRanks(this);
     });
 
 

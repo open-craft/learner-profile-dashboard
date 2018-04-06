@@ -27,14 +27,14 @@
   {% endif %}
 
   {% if question.type == 'mrq' %}
-    <div class="mc-options">
+    <div class="mr-options" data-max-options-to-select="{{ question.max_options_to_select }}">
       {% for answer_option in question.get_answer_options %}
         <label>
           {{ answer_option.option_text }}
           {% if answer_option.allows_custom_input %}
             <input type="text" name="{{ question.id }}-custom-input" />
           {% endif %}
-          <input type="checkbox" name="{{ question.id }}-options" value="{{ answer_option.id }}" />
+          <input type="checkbox" name="{{ question.id }}-options" value="{{ answer_option.id }}" class="mr-option" />
         </label>
       {% endfor %}
     </div>

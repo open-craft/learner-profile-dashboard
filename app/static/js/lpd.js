@@ -4,6 +4,20 @@
 
 $(document).ready(function() {
 
+    // Constants
+
+    const MC_QUESTION_TYPES = ['mcq', 'mrq'],
+          RANKING_QUESTION_TYPES = ['ranking', 'likert'],
+          QUANTITATIVE_QUESTION_TYPES = MC_QUESTION_TYPES.concat(RANKING_QUESTION_TYPES),
+          QUALITATIVE_QUESTION_TYPES = ['essay', 'short-answer'],
+          ANSWER_OPTION_SELECTORS = {
+              'mcq': '.mc-option',
+              'mrq': '.mr-option',
+              'ranking': '.ranking-option',
+              'likert': '.likert-option'
+          };
+
+
     // Functions
 
     var updateOptionGroups = function() {
@@ -42,6 +56,91 @@ $(document).ready(function() {
         });
     };
 
+    var collectAnswers = function($sectionForm) {
+        var $questions = $sectionForm.find('.question'),
+            qualitativeAnswers = [],
+            quantitativeAnswers = [];
+
+        console.log($questions);
+
+        $questions.each(function(i, question) {
+            var $question = $(question),
+                questionID = $question.data('question-id'),
+                questionType = $question.data('question-type');
+
+            if ($.inArray(questionType, QUALITATIVE_QUESTION_TYPES) !== -1) {
+                var answerData = collectAnswerData($question, questionID);
+                qualitativeAnswers.push(answerData);
+            } else if ($.inArray(questionType, QUANTITATIVE_QUESTION_TYPES) !== -1) {
+                var answerOptionData = collectAnswerOptionData($question, questionID, questionType);
+                quantitativeAnswers = quantitativeAnswers.concat(answerOptionData);
+            }
+        });
+
+        console.log(qualitativeAnswers);
+        console.log(quantitativeAnswers);
+
+        return {
+            'qualitative_answers': JSON.stringify(qualitativeAnswers),
+            'quantitative_answers': JSON.stringify(quantitativeAnswers)
+        };
+    };
+
+    var collectAnswerData = function($question, questionID) {
+        var $answerText = $question.find('.answer-text'),
+            answerData = {
+                question_id: questionID,
+                answer_text: $answerText.val()
+            };
+        return answerData;
+    };
+
+    var collectAnswerOptionData = function($question, questionID, questionType) {
+        var $answerOptions = $question.find(ANSWER_OPTION_SELECTORS[questionType]),
+            results = [];
+
+        $answerOptions.each(function(i, answerOption) {
+            var $answerOption = $(answerOption),
+                answerOptionID = $answerOption.data('answer-option-id'),
+                answerOptionValue = getAnswerOptionValue(questionType, $answerOption),
+                $customInput = getCustomInput(questionType, $answerOption),
+                answerOptionData = {
+                    question_id: questionID,
+                    question_type: questionType
+                };
+
+            answerOptionData['answer_option_id'] = answerOptionID;
+            answerOptionData['answer_option_value'] = answerOptionValue;
+
+            if ($customInput.length > 0) {
+                answerOptionData['answer_option_custom_input'] = $customInput.val();
+            }
+
+            results.push(answerOptionData);
+        });
+        return results;
+    };
+
+    var getAnswerOptionValue = function(questionType, $answerOption) {
+        var answerOptionValue;
+        if ($.inArray(questionType, MC_QUESTION_TYPES) > -1) {
+            answerOptionValue = $answerOption.is(':checked') ? 1 : 0;
+        } else if ($.inArray(questionType, RANKING_QUESTION_TYPES) > -1) {
+            answerOptionValue = $answerOption.find('.option-rank:checked').val();
+        }
+        return answerOptionValue;
+    };
+
+    var getCustomInput = function(questionType, $answerOption) {
+        var $customInput;
+        if ($.inArray(questionType, MC_QUESTION_TYPES) > -1) {
+            $customInput = $answerOption.prev('.custom-input');
+        } else if ($.inArray(questionType, RANKING_QUESTION_TYPES) > -1) {
+            $customInput = $answerOption.find('.custom-input');
+        }
+        return $customInput;
+    };
+
 
     // Event handlers
 
@@ -63,11 +162,43 @@ $(document).ready(function() {
         uncheckSameValueRanks(this);
     });
 
+    $('.section-submit').click(function(e) {
+        e.preventDefault();
+        console.log('Submitting answers ...');
+
+        var $sectionForm = $(this).parents('form'),
+            answers = collectAnswers($sectionForm);
+
+        $.ajax({
+            url: 'submit',
+            type: 'POST',
+            data: answers,
+            success: function(data) {
+                console.log('SUCCESS');
+                console.log(data);
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.log('ERROR');
+                console.log(jqXHR.status);
+                console.log(jqXHR.responseText);
+            }
+        });
+
+    });
+
 
     // Initialization
 
     var init = function() {
         console.log('Initializing ...');
+
+        $.ajaxSetup({
+            headers: {
+                'X-CSRFToken': Cookies.get('csrftoken')
+            },
+            dataType: 'json'
+        });
+
         updateOptionGroups();
     };
 

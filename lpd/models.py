@@ -4,7 +4,10 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
 from django.db import models
+from django.db.models import Max
 from ordered_model.models import OrderedModel
+
+from lpd.constants import QuestionTypes
 
 
 class LearnerProfileDashboard(models.Model):
@@ -106,11 +109,9 @@ class QualitativeQuestion(Question):
     """
     Represents a questions that requires a free-text answer.
     """
-    SHORT_ANSWER = 'short answer'
-    ESSAY = 'essay'
     QUESTION_TYPES = (
-        ('short-answer', SHORT_ANSWER),
-        ('essay', ESSAY),
+        (QuestionTypes.SHORT_ANSWER, 'short answer'),
+        (QuestionTypes.ESSAY, 'essay'),
     )
     question_type = models.CharField(
         choices=QUESTION_TYPES,
@@ -191,7 +192,7 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
         """
         Return string that specifies the exact type of this question.
         """
-        return 'mcq' if self.max_options_to_select == 1 else 'mrq'
+        return QuestionTypes.MCQ if self.max_options_to_select == 1 else QuestionTypes.MRQ
 
 
 class RankingQuestion(QuantitativeQuestion):
@@ -212,7 +213,17 @@ class RankingQuestion(QuantitativeQuestion):
         """
         Return string that specifies the exact type of this question.
         """
-        return 'ranking'
+        return QuestionTypes.RANKING
+
+    @classmethod
+    def unranked_option_value(cls):
+        """
+        Return value to store for answer options that a learner did not rank.
+        """
+        max_rank = cls.objects.all().aggregate(
+            Max('number_of_options_to_rank')
+        ).get('number_of_options_to_rank__max')
+        return max_rank + 1
 
 
 class LikertScaleQuestion(QuantitativeQuestion):
@@ -245,7 +256,7 @@ class LikertScaleQuestion(QuantitativeQuestion):
         """
         Return string that specifies the exact type of this question.
         """
-        return 'likert'
+        return QuestionTypes.LIKERT
 
 
 class AnswerOption(models.Model):
@@ -326,7 +337,14 @@ class QuantitativeAnswer(Answer):
         related_name='learner_answers',
     )
     value = models.PositiveIntegerField(
-        help_text='The value that the learner chose for the associated question.',
+        help_text=(
+            'The value that the learner chose for the associated answer option. '
+            'Note that if the answer option belongs to a multiple choice question, '
+            'this field will be set to 1 if the learner selected the answer option, '
+            'and to 0 if the learner did not select the answer option. '
+            'For ranking and Likert scale questions, this field will be set to the value '
+            'that the learner chose from the range of available values.'
+        ),
     )
     custom_input = models.CharField(
         max_length=120,

@@ -327,7 +327,7 @@ class AnswerOption(models.Model):
         else:
             return {
                 'value': answer.value,
-                'custom_input': answer.custom_input
+                'custom_input': answer.custom_input or ''
             }
 
 

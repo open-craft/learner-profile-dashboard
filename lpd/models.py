@@ -136,6 +136,17 @@ class QualitativeQuestion(Question):
         """
         return self.question_type
 
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this question.
+        """
+        try:
+            answer = QualitativeAnswer.objects.get(question=self, learner=learner)
+        except QualitativeAnswer.DoesNotExist:
+            return ''
+        else:
+            return answer.text
+
 
 class QuantitativeQuestion(Question):
     """
@@ -300,6 +311,24 @@ class AnswerOption(models.Model):
 
     def __unicode__(self):
         return 'AnswerOption {id}: {text}'.format(id=self.id, text=self.option_text)
+
+    def get_data(self, learner):
+        """
+        Return value that `learner` chose for this answer option.
+
+        If `answer_option` belongs to a multiple choice question,
+        the value returned will be 1 if the learner selected the answer option,
+        and 0 if the learner did not select the answer option.
+        """
+        try:
+            answer = QuantitativeAnswer.objects.get(answer_option=self, learner=learner)
+        except QuantitativeAnswer.DoesNotExist:
+            return None
+        else:
+            return {
+                'value': answer.value,
+                'custom_input': answer.custom_input
+            }
 
 
 class Answer(models.Model):

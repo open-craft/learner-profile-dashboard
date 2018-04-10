@@ -16,6 +16,8 @@ class UserSetup(object):
         self.user2.set_password(self.password)
         self.user2.save()
 
+        self.lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
+
     def login(self, username=None, password=None):
         username = username if username else self.user.username
         password = password if password else self.password
@@ -29,25 +31,13 @@ class LearnerProfileDashboardHomeViewTestCase(UserSetup, TestCase):
 
     def test_anonymous(self):
         response = self.client.get(self.home_url)
-        self.assertRedirects(response, reverse('lpd:add'), 302)
+        login_url = ''.join([reverse('admin:login'), '?next=', self.home_url])
+        self.assertRedirects(response, login_url)
 
-    def test_no_lpd(self):
+    def test_lpd_view(self):
         self.login()
         response = self.client.get(self.home_url)
-        self.assertRedirects(response, reverse('lpd:add'), 302)
-
-    def test_one_lpd(self):
-        lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
-        self.login()
-        response = self.client.get(self.home_url)
-        self.assertRedirects(response, reverse('lpd:view', kwargs=dict(pk=lpd.id)))
-
-    def test_two_lpd(self):
-        LearnerProfileDashboard.objects.create(name='Test LPD 1')
-        LearnerProfileDashboard.objects.create(name='Test LPD 2')
-        self.login()
-        response = self.client.get(self.home_url)
-        self.assertRedirects(response, reverse('lpd:list'))
+        self.assertEqual(response.status_code, 200)
 
 
 class LearnerProfileDashboardCreateViewTestCase(UserSetup, TestCase):

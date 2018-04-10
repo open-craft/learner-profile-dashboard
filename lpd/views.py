@@ -31,7 +31,7 @@ class LPDView(TemplateView):
         """
         context = super(LPDView, self).get_context_data(**kwargs)
         learner = User.objects.get(username=self.request.user.username)
-        lpd = LearnerProfileDashboard.objects.get()
+        lpd = LearnerProfileDashboard.objects.first()
         context['learner'] = learner
         context['lpd'] = lpd
         return context

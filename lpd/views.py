@@ -58,7 +58,7 @@ class LPDSubmitView(View):
         try:
             self._process_qualitative_answers(user, qualitative_answers)
             self._process_quantitative_answers(user, quantitative_answers)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             print(e)
             response = JsonResponse({'message': 'Could not update learner answers.'}, status=500)
         else:

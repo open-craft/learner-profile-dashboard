@@ -103,17 +103,16 @@ class LPDSubmitView(View):
                     # If learner did not select a value for an answer to a Likert scale question,
                     # we simply consider it unanswered.
                     continue
+            defaults = dict(value=value)
+            if custom_input:
+                defaults['custom_input'] = custom_input
             answer, unused = QuantitativeAnswer.objects.update_or_create(
                 learner=user,
                 answer_option=answer_option,
-                defaults=dict(
-                    value=value
-                ),
+                defaults=defaults,
             )
-            if custom_input:
-                answer.custom_input = custom_input
-            answer.save()
             print(answer.value)
+            print(answer.custom_input)
 
 
 class LearnerProfileDashboardView(object):

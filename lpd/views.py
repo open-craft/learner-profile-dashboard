@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.http import JsonResponse
 from django.views.generic import DetailView, ListView, CreateView, UpdateView
@@ -18,6 +19,13 @@ from lpd.models import (
     QuantitativeAnswer,
 )
 
+
+# Globals
+
+log = logging.getLogger(__name__)
+
+
+# Classes
 
 class LPDView(TemplateView):
     """
@@ -51,15 +59,19 @@ class LPDSubmitView(View):
         qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
         quantitative_answers = json.loads(request.POST.get('quantitative_answers'))
 
-        print(user)
-        print(qualitative_answers)
-        print(quantitative_answers)
+        log.info('Attempting to update answers for user {user}.'.format(user=user))
+        log.info('Request data (qualitative answers): {data}'.format(data=qualitative_answers))
+        log.info('Request data (quantitative answers): {data}'.format(data=quantitative_answers))
 
         try:
             self._process_qualitative_answers(user, qualitative_answers)
             self._process_quantitative_answers(user, quantitative_answers)
         except Exception as e:  # pylint: disable=broad-except
-            print(e)
+            log.error(
+                'The following exception occurred when trying to process answers for user {user}: {exception}'.format(
+                    user=user, exception=e
+                )
+            )
             response = JsonResponse({'message': 'Could not update learner answers.'}, status=500)
         else:
             response = JsonResponse({'message': 'Learner answers updated successfully.'})
@@ -74,6 +86,12 @@ class LPDSubmitView(View):
             question_id = qualitative_answer.get('question_id')
             question = QualitativeQuestion.objects.get(id=question_id)
             text = qualitative_answer.get('answer_text')
+            log.info(
+                'Creating or updating answer from user {user} for question {question}. '
+                'New text: {text}'.format(
+                    user=user, question=question, text=text
+                )
+            )
             QualitativeAnswer.objects.update_or_create(
                 learner=user,
                 question=question,
@@ -93,8 +111,6 @@ class LPDSubmitView(View):
             answer_option = AnswerOption.objects.get(id=answer_option_id)
             value = quantitative_answer.get('answer_option_value')
             custom_input = quantitative_answer.get('answer_option_custom_input')
-            print(answer_option)
-            print(value)
             if value is None:
                 if question_type == QuestionTypes.RANKING:
                     value = RankingQuestion.unranked_option_value()
@@ -102,16 +118,20 @@ class LPDSubmitView(View):
                     # If learner did not select a value for an answer to a Likert scale question,
                     # we simply consider it unanswered.
                     continue
-            defaults = dict(value=value)
+            answer_data = dict(value=value)
             if custom_input:
-                defaults['custom_input'] = custom_input
+                answer_data['custom_input'] = custom_input
+            log.info(
+                'Creating or updating answer from user {user} for answer option {answer_option}. '
+                'New data: {data}'.format(
+                    user=user, answer_option=answer_option, data=answer_data
+                )
+            )
             QuantitativeAnswer.objects.update_or_create(
                 learner=user,
                 answer_option=answer_option,
-                defaults=defaults,
+                defaults=answer_data,
             )
-            print(answer.value)
-            print(answer.custom_input)
 
 
 class LearnerProfileDashboardView(object):

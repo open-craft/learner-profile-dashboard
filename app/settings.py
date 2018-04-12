@@ -138,6 +138,11 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'lpd.views': {
+            'handlers': ['file_debug_log'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
 }
 

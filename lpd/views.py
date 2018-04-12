@@ -74,14 +74,13 @@ class LPDSubmitView(View):
             question_id = qualitative_answer.get('question_id')
             question = QualitativeQuestion.objects.get(id=question_id)
             text = qualitative_answer.get('answer_text')
-            answer, unused = QualitativeAnswer.objects.update_or_create(
+            QualitativeAnswer.objects.update_or_create(
                 learner=user,
                 question=question,
                 defaults=dict(
                     text=text
                 ),
             )
-            answer.save()
 
     @classmethod
     def _process_quantitative_answers(cls, user, quantitative_answers):
@@ -106,7 +105,7 @@ class LPDSubmitView(View):
             defaults = dict(value=value)
             if custom_input:
                 defaults['custom_input'] = custom_input
-            answer, unused = QuantitativeAnswer.objects.update_or_create(
+            QuantitativeAnswer.objects.update_or_create(
                 learner=user,
                 answer_option=answer_option,
                 defaults=defaults,

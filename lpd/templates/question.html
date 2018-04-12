@@ -17,20 +17,20 @@
     <div class="mc-options">
       {% for answer_option in question.get_answer_options %}
         <label>
-          {{ answer_option.option_text }}
           {% get_data answer_option learner as answer_option_data %}
-          {% if answer_option.allows_custom_input %}
-            <input type="text"
-                   name="{{ question.id }}-custom-input"
-                   class="custom-input"
-                   value="{{ answer_option_data.custom_input }}" />
-          {% endif %}
           <input type="radio"
                  name="{{ question.id }}-options"
                  value="{{ answer_option.id }}"
                  class="mc-option"
                  data-answer-option-id="{{ answer_option.id }}"
                  {% if answer_option_data.value == 1 %}checked="checked"{% endif %} />
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text"
+                   name="{{ question.id }}-custom-input"
+                   class="custom-input"
+                   value="{{ answer_option_data.custom_input }}" />
+          {% endif %}
         </label>
       {% endfor %}
     </div>
@@ -40,20 +40,20 @@
     <div class="mr-options" data-max-options-to-select="{{ question.max_options_to_select }}">
       {% for answer_option in question.get_answer_options %}
         <label>
-          {{ answer_option.option_text }}
           {% get_data answer_option learner as answer_option_data %}
-          {% if answer_option.allows_custom_input %}
-            <input type="text"
-                   name="{{ question.id }}-custom-input"
-                   class="custom-input"
-                   value="{{ answer_option_data.custom_input }}" />
-          {% endif %}
           <input type="checkbox"
                  name="{{ question.id }}-options"
                  value="{{ answer_option.id }}"
                  class="mr-option"
                  data-answer-option-id="{{ answer_option.id }}"
                  {% if answer_option_data.value == 1 %}checked="checked"{% endif %} />
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text"
+                   name="{{ question.id }}-custom-input"
+                   class="custom-input"
+                   value="{{ answer_option_data.custom_input }}" />
+          {% endif %}
         </label>
       {% endfor %}
     </div>
@@ -73,12 +73,12 @@
           {% endif %}
           {% for i in question.number_of_options_to_rank|range %}
             <label>
-              {{ i }}
               <input type="radio"
                      name="{{ answer_option.id }}-ranks"
                      value="{{ i }}"
                      class="option-rank"
                      {% if answer_option_data.value == i %}checked="checked"{% endif %} />
+              {{ i }}
             </label>
           {% endfor %}
         </div>
@@ -101,12 +101,12 @@
           {% endif %}
           {% for i in question.answer_option_range|range %}
             <label>
-              {{ i }}
               <input type="radio"
                      name="{{ answer_option.id }}-ranks"
                      value="{{ i }}"
                      class="option-rank"
                      {% if answer_option_data.value == i %}checked="checked"{% endif %} />
+              {{ i }}
             </label>
           {% endfor %}
         </div>

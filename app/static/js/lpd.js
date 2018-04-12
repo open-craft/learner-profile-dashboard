@@ -134,7 +134,7 @@ $(document).ready(function() {
     var getCustomInput = function(questionType, $answerOption) {
         var $customInput;
         if ($.inArray(questionType, MC_QUESTION_TYPES) > -1) {
-            $customInput = $answerOption.prev('.custom-input');
+            $customInput = $answerOption.next('.custom-input');
         } else if ($.inArray(questionType, RANKING_QUESTION_TYPES) > -1) {
             $customInput = $answerOption.find('.custom-input');
         }

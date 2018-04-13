@@ -59,19 +59,15 @@ class LPDSubmitView(View):
         qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
         quantitative_answers = json.loads(request.POST.get('quantitative_answers'))
 
-        log.info('Attempting to update answers for user {user}.'.format(user=user))
-        log.info('Request data (qualitative answers): {data}'.format(data=qualitative_answers))
-        log.info('Request data (quantitative answers): {data}'.format(data=quantitative_answers))
+        log.info('Attempting to update answers for user %s', user)
+        log.info('Request data (qualitative answers): %s', qualitative_answers)
+        log.info('Request data (quantitative answers): %s', quantitative_answers)
 
         try:
             self._process_qualitative_answers(user, qualitative_answers)
             self._process_quantitative_answers(user, quantitative_answers)
         except Exception as e:  # pylint: disable=broad-except
-            log.error(
-                'The following exception occurred when trying to process answers for user {user}: {exception}'.format(
-                    user=user, exception=e
-                )
-            )
+            log.error('The following exception occurred when trying to process answers for user %s: %s', user, e)
             response = JsonResponse({'message': 'Could not update learner answers.'}, status=500)
         else:
             log.info('Answers successfully updated for user %s', user)
@@ -88,10 +84,8 @@ class LPDSubmitView(View):
             question = QualitativeQuestion.objects.get(id=question_id)
             text = qualitative_answer.get('answer_text')
             log.info(
-                'Creating or updating answer from user {user} for question {question}. '
-                'New text: {text}'.format(
-                    user=user, question=question, text=text
-                )
+                'Creating or updating answer from user %s for question %s. New text: %s',
+                user, question, text
             )
             QualitativeAnswer.objects.update_or_create(
                 learner=user,
@@ -123,10 +117,8 @@ class LPDSubmitView(View):
             if custom_input:
                 answer_data['custom_input'] = custom_input
             log.info(
-                'Creating or updating answer from user {user} for answer option {answer_option}. '
-                'New data: {data}'.format(
-                    user=user, answer_option=answer_option, data=answer_data
-                )
+                'Creating or updating answer from user %s for answer option %s. New data: %s',
+                user, answer_option, answer_data
             )
             QuantitativeAnswer.objects.update_or_create(
                 learner=user,

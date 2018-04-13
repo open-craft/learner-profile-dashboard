@@ -3,7 +3,7 @@
 
 <div class="question" data-question-id="{{ question.id }}" data-question-type="{{ question.type }}">
 
-  <p>{{ question.question_text }}</p>
+  <p>{{ question.section_number }} {{ question.question_text }}</p>
 
   {% if question.type == 'essay' %}
     <textarea class="answer-text">{% get_answer question learner %}</textarea>

@@ -64,7 +64,7 @@ class Section(OrderedModel):
             list(self.multiplechoicequestion_set.all()) +
             list(self.rankingquestion_set.all()) +
             list(self.likertscalequestion_set.all()),
-            key=lambda q: q.section_number
+            key=lambda q: q.number
         )
 
 

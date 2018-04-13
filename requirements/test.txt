@@ -1,5 +1,6 @@
 -r base.txt
 coverage
+factory-boy==2.10.0
 mock==1.0.1
 prospector==0.12.7
 -r _test.txt

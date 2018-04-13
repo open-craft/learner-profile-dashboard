@@ -74,6 +74,7 @@ class LPDSubmitView(View):
             )
             response = JsonResponse({'message': 'Could not update learner answers.'}, status=500)
         else:
+            log.info('Answers successfully updated for user %s', user)
             response = JsonResponse({'message': 'Learner answers updated successfully.'})
         return response
 

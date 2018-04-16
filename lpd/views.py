@@ -1,27 +1,135 @@
-from django.views.generic import DetailView, ListView, CreateView, RedirectView, UpdateView
-from django.core.urlresolvers import reverse
+import json
+import logging
+
+from django.http import JsonResponse
+from django.views.generic import DetailView, ListView, CreateView, UpdateView
+from django.views.generic.base import TemplateView, View
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.utils.decorators import method_decorator
 
-from lpd.models import LearnerProfileDashboard, LearnerProfileDashboardForm
+from lpd.constants import QuestionTypes
+from lpd.models import (
+    AnswerOption,
+    LearnerProfileDashboard,
+    LearnerProfileDashboardForm,
+    RankingQuestion,
+    QualitativeAnswer,
+    QualitativeQuestion,
+    QuantitativeAnswer,
+)
+
+
+# Globals
+
+log = logging.getLogger(__name__)
+
+
+# Classes
+
+class LPDView(TemplateView):
+    """
+    Display LPD.
+    """
+    template_name = 'view.html'
+
+    def get_context_data(self, **kwargs):
+        """
+        Collect necessary information for displaying LPD.
+        """
+        context = super(LPDView, self).get_context_data(**kwargs)
+        learner = User.objects.get(username=self.request.user.username)
+        lpd = LearnerProfileDashboard.objects.first()
+        context['learner'] = learner
+        context['lpd'] = lpd
+        return context
+
+
+class LPDSubmitView(View):
+    """
+    Handle answer submissions from LPD.
+    """
+    http_method_names = ['post']
+
+    def post(self, request, *args, **kwargs):
+        """
+        Persist learner answers to LPD questions.
+        """
+        user = User.objects.get(username=request.user.username)
+        qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
+        quantitative_answers = json.loads(request.POST.get('quantitative_answers'))
+
+        log.info('Attempting to update answers for user %s', user)
+        log.info('Request data (qualitative answers): %s', qualitative_answers)
+        log.info('Request data (quantitative answers): %s', quantitative_answers)
+
+        try:
+            self._process_qualitative_answers(user, qualitative_answers)
+            self._process_quantitative_answers(user, quantitative_answers)
+        except Exception as e:  # pylint: disable=broad-except
+            log.error('The following exception occurred when trying to process answers for user %s: %s', user, e)
+            response = JsonResponse({'message': 'Could not update learner answers.'}, status=500)
+        else:
+            log.info('Answers successfully updated for user %s', user)
+            response = JsonResponse({'message': 'Learner answers updated successfully.'})
+        return response
+
+    @classmethod
+    def _process_qualitative_answers(cls, user, qualitative_answers):
+        """
+        Create or update `QualitativeAnswer` for current learner, for each qualitative answer in request.
+        """
+        for qualitative_answer in qualitative_answers:
+            question_id = qualitative_answer.get('question_id')
+            question = QualitativeQuestion.objects.get(id=question_id)
+            text = qualitative_answer.get('answer_text')
+            log.info(
+                'Creating or updating answer from user %s for question %s. New text: %s',
+                user, question, text
+            )
+            QualitativeAnswer.objects.update_or_create(
+                learner=user,
+                question=question,
+                defaults=dict(
+                    text=text
+                ),
+            )
+
+    @classmethod
+    def _process_quantitative_answers(cls, user, quantitative_answers):
+        """
+        Create or update `QuantitativeAnswer` for current learner, for each quantitative answer in request.
+        """
+        for quantitative_answer in quantitative_answers:
+            question_type = quantitative_answer.get('question_type')
+            answer_option_id = quantitative_answer.get('answer_option_id')
+            answer_option = AnswerOption.objects.get(id=answer_option_id)
+            value = quantitative_answer.get('answer_option_value')
+            custom_input = quantitative_answer.get('answer_option_custom_input')
+            if value is None:
+                if question_type == QuestionTypes.RANKING:
+                    value = RankingQuestion.unranked_option_value()
+                elif question_type == QuestionTypes.LIKERT:
+                    # If learner did not select a value for an answer to a Likert scale question,
+                    # we simply consider it unanswered.
+                    continue
+            answer_data = dict(value=value)
+            if custom_input:
+                answer_data['custom_input'] = custom_input
+            log.info(
+                'Creating or updating answer from user %s for answer option %s. New data: %s',
+                user, answer_option, answer_data
+            )
+            QuantitativeAnswer.objects.update_or_create(
+                learner=user,
+                answer_option=answer_option,
+                defaults=answer_data,
+            )
 
 
 class LearnerProfileDashboardView(object):
     model = LearnerProfileDashboard
     form_class = LearnerProfileDashboardForm
-
-
-class ShowOrCreateLearnerProfileDashboardView(LearnerProfileDashboardView, RedirectView):
-    permanent = False
-
-    def get_redirect_url(self, *args, **kwargs):  # pylint: disable=inconsistent-return-statements
-        lpd = LearnerProfileDashboard.objects.values_list('id', flat=True)
-        if len(lpd) > 1:
-            return reverse('lpd:list')
-        elif len(lpd) == 1:
-            return reverse('lpd:view', kwargs=dict(pk=lpd[0]))
-        elif len(lpd) == 0:  # pylint: disable=len-as-condition
-            return reverse('lpd:add')
 
 
 class ShowLearnerProfileDashboardView(LearnerProfileDashboardView, DetailView):

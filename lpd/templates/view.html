@@ -2,10 +2,13 @@
 
 {% block content %}
   <div id="view-lpd">
-    <div class="lpd">{{ learnerprofiledashboard }}</div>
-    <ul class="links">
-      <li><a href="{% url "lpd:edit" learnerprofiledashboard.id %}">edit</a></li>
-      <li><a href="{% url "lpd:list" %}">see all</a></li>
-    </ul>
+    <div class="lpd">{{ lpd }}</div>
+
+    {% for profile_section in lpd.sections.all %}
+      {% with section_template="section.html" %}
+        {% include section_template with section=profile_section %}
+      {% endwith %}
+    {% endfor %}
+
   </div>
 {% endblock content %}

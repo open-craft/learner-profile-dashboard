@@ -1,0 +1,117 @@
+{% load lpd_filters %}
+{% load lpd_tags %}
+
+<div class="question" data-question-id="{{ question.id }}" data-question-type="{{ question.type }}">
+
+  <p>{{ question.section_number }} {{ question.question_text }}</p>
+
+  {% if question.type == 'essay' %}
+    <textarea class="answer-text">{% get_answer question learner %}</textarea>
+  {% endif %}
+
+  {% if question.type == 'short-answer' %}
+    <input type="text" class="answer-text" value="{% get_answer question learner %}"/>
+  {% endif %}
+
+  {% if question.type == 'mcq' %}
+    <div class="mc-options">
+      {% for answer_option in question.get_answer_options %}
+        <label>
+          {% get_data answer_option learner as answer_option_data %}
+          <input type="radio"
+                 name="{{ question.id }}-options"
+                 value="{{ answer_option.id }}"
+                 class="mc-option"
+                 data-answer-option-id="{{ answer_option.id }}"
+                 {% if answer_option_data.value == 1 %}checked="checked"{% endif %} />
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text"
+                   name="{{ question.id }}-custom-input"
+                   class="custom-input"
+                   value="{{ answer_option_data.custom_input }}" />
+          {% endif %}
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if question.type == 'mrq' %}
+    <div class="mr-options" data-max-options-to-select="{{ question.max_options_to_select }}">
+      {% for answer_option in question.get_answer_options %}
+        <label>
+          {% get_data answer_option learner as answer_option_data %}
+          <input type="checkbox"
+                 name="{{ question.id }}-options"
+                 value="{{ answer_option.id }}"
+                 class="mr-option"
+                 data-answer-option-id="{{ answer_option.id }}"
+                 {% if answer_option_data.value == 1 %}checked="checked"{% endif %} />
+          {{ answer_option.option_text }}
+          {% if answer_option.allows_custom_input %}
+            <input type="text"
+                   name="{{ question.id }}-custom-input"
+                   class="custom-input"
+                   value="{{ answer_option_data.custom_input }}" />
+          {% endif %}
+        </label>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if question.type == 'ranking' %}
+    <div class="ranking-options">
+      {% for answer_option in question.get_answer_options %}
+        <div class="ranking-option" data-answer-option-id="{{ answer_option.id }}">
+          {{ answer_option.option_text }}
+          {% get_data answer_option learner as answer_option_data %}
+          {% if answer_option.allows_custom_input %}
+            <input type="text"
+                   name="{{ question.id }}-custom-input"
+                   class="custom-input"
+                   value="{{ answer_option_data.custom_input }}" />
+          {% endif %}
+          {% for i in question.number_of_options_to_rank|range %}
+            <label>
+              <input type="radio"
+                     name="{{ answer_option.id }}-ranks"
+                     value="{{ i }}"
+                     class="option-rank"
+                     {% if answer_option_data.value == i %}checked="checked"{% endif %} />
+              {{ i }}
+            </label>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if question.type == 'likert' %}
+    <div class="likert-options">
+      <p>This is a {{ question.answer_option_range }}-point scale from {{ question.range_min_text }} to {{ question.range_max_text }}.</p>
+      {% for answer_option in question.get_answer_options %}
+        <div class="likert-option" data-answer-option-id="{{ answer_option.id }}">
+          {{ answer_option.option_text }}
+          {% get_data answer_option learner as answer_option_data %}
+          {% if answer_option.allows_custom_input %}
+            <input type="text"
+                   name="{{ question.id }}-custom-input"
+                   class="custom-input"
+                   value="{{ answer_option_data.custom_input }}" />
+          {% endif %}
+          {% for i in question.answer_option_range|range %}
+            <label>
+              <input type="radio"
+                     name="{{ answer_option.id }}-ranks"
+                     value="{{ i }}"
+                     class="option-rank"
+                     {% if answer_option_data.value == i %}checked="checked"{% endif %} />
+              {{ i }}
+            </label>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+</div>

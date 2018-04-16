@@ -1,10 +1,13 @@
 from django import forms
 from django.conf import settings
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
 from django.db import models
+from django.db.models import Max
 from ordered_model.models import OrderedModel
+
+from lpd.constants import QuestionTypes
 
 
 class LearnerProfileDashboard(models.Model):
@@ -32,7 +35,10 @@ class Section(OrderedModel):
     """
     Groups a set of related questions on the LPD.
     """
-    lpd = models.ForeignKey('LearnerProfileDashboard')
+    lpd = models.ForeignKey(
+        'LearnerProfileDashboard',
+        related_name='sections',
+    )
     title = models.CharField(
         max_length=120,
         blank=True,
@@ -40,18 +46,37 @@ class Section(OrderedModel):
         help_text='Text to display above questions belonging to this section (optional).',
     )
 
+    order_with_respect_to = 'lpd'
+
     class Meta(OrderedModel.Meta):
         pass
 
     def __unicode__(self):
         return 'Section {id}: {title}'.format(id=self.id, title=self.title or '<title not set>')
 
+    @property
+    def questions(self):
+        """
+        Return list of all questions belonging to this section, irrespective of their type.
+        """
+        return sorted(
+            list(self.qualitativequestion_set.all()) +
+            list(self.multiplechoicequestion_set.all()) +
+            list(self.rankingquestion_set.all()) +
+            list(self.likertscalequestion_set.all()),
+            key=lambda q: q.number
+        )
 
-class Question(OrderedModel):
+
+class Question(models.Model):
     """
     Abstract base class for models representing learner profile question.
     """
     section = models.ForeignKey('Section')
+    number = models.PositiveIntegerField(
+        default=1,
+        help_text='Number of this question relative to parent section.'
+    )
     question_text = models.TextField(
         help_text='Text to display above answer options (if any) and input fields.',
     )
@@ -61,21 +86,32 @@ class Question(OrderedModel):
         help_text='Author notes about this question (optional).',
     )
 
-    order_with_respect_to = 'section'
-
-    class Meta(OrderedModel.Meta):
+    class Meta:
         abstract = True
+
+    @property
+    def type(self):
+        """
+        Return string that specifies the exact type of this question.
+        """
+        raise NotImplementedError
+
+    @property
+    def section_number(self):
+        """
+        Return string of the form 'X.Y'
+        where X represents `order` of parent section and Y represents `number` of this question.
+        """
+        return '{section}.{number}'.format(section=self.section.order, number=self.number)
 
 
 class QualitativeQuestion(Question):
     """
     Represents a questions that requires a free-text answer.
     """
-    SHORT_ANSWER = 'short answer'
-    ESSAY = 'essay'
     QUESTION_TYPES = (
-        ('short-answer', SHORT_ANSWER),
-        ('essay', ESSAY),
+        (QuestionTypes.SHORT_ANSWER, 'short answer'),
+        (QuestionTypes.ESSAY, 'essay'),
     )
     question_type = models.CharField(
         choices=QUESTION_TYPES,
@@ -83,6 +119,7 @@ class QualitativeQuestion(Question):
         help_text='Whether this question requires learners to produce a short answer or an essay.',
     )
     influences_group_membership = models.BooleanField(
+        default=False,
         help_text=(
             'Whether answers to this question should be taken into account '
             'when calculating group membership for specific learners.'
@@ -92,20 +129,57 @@ class QualitativeQuestion(Question):
     def __unicode__(self):
         return 'QualitativeQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
 
+    @property
+    def type(self):
+        """
+        Return string that specifies the exact type of this question.
+        """
+        return self.question_type
+
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this question.
+        """
+        try:
+            answer = QualitativeAnswer.objects.get(question=self, learner=learner)
+        except QualitativeAnswer.DoesNotExist:
+            return ''
+        else:
+            return answer.text
+
 
 class QuantitativeQuestion(Question):
     """
     Abstract base class for models representing questions with a pre-defined set of answer options.
     """
+    answer_options = GenericRelation('AnswerOption')
     randomize_options = models.BooleanField(
+        default=False,
         help_text='Whether to display answer options in random order on LPD.',
     )
 
-    class Meta(OrderedModel.Meta):
+    class Meta:
         abstract = True
 
     def get_content_type(self):
         return ContentType.objects.get_for_model(self).id
+
+    @property
+    def type(self):
+        """
+        Return string that specifies the exact type of this question.
+        """
+        raise NotImplementedError
+
+    def get_answer_options(self):
+        """
+        Return answer options belonging to this question, sorted according to value of `randomize_options`:
+
+        - If `randomize_options` is True, return answer options in random order.
+        - If `randomize_options` is False, return answer options in alphabetical order (based on `option_text`).
+        """
+        ordering = '?' if self.randomize_options else 'option_text'
+        return self.answer_options.order_by(ordering)
 
 
 class MultipleChoiceQuestion(QuantitativeQuestion):
@@ -113,6 +187,7 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
     Represents a multiple choice question (MCQ) or multiple response question (MRQ).
     """
     max_options_to_select = models.PositiveIntegerField(
+        default=1,
         help_text=(
             'Maximum number of answer options that learner is allowed to select for this question. '
             'Set this to 1 to create a multiple choice question. '
@@ -123,6 +198,13 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
     def __unicode__(self):
         return 'MultipleChoiceQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
 
+    @property
+    def type(self):
+        """
+        Return string that specifies the exact type of this question.
+        """
+        return QuestionTypes.MCQ if self.max_options_to_select == 1 else QuestionTypes.MRQ
+
 
 class RankingQuestion(QuantitativeQuestion):
     """
@@ -130,11 +212,29 @@ class RankingQuestion(QuantitativeQuestion):
     on a scale from 1 to `number_of_options_to_rank`.
     """
     number_of_options_to_rank = models.PositiveIntegerField(
+        default=3,
         help_text='Number of answer options belonging to this question that learners are allowed to rank.',
     )
 
     def __unicode__(self):
         return 'RankingQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+
+    @property
+    def type(self):
+        """
+        Return string that specifies the exact type of this question.
+        """
+        return QuestionTypes.RANKING
+
+    @classmethod
+    def unranked_option_value(cls):
+        """
+        Return value to store for answer options that a learner did not rank.
+        """
+        max_rank = cls.objects.all().aggregate(
+            Max('number_of_options_to_rank')
+        ).get('number_of_options_to_rank__max')
+        return max_rank + 1
 
 
 class LikertScaleQuestion(QuantitativeQuestion):
@@ -142,6 +242,7 @@ class LikertScaleQuestion(QuantitativeQuestion):
     Represents a (simplified) Likert Scale question, cf. https://en.wikipedia.org/wiki/Likert_scale.
     """
     answer_option_range = models.PositiveIntegerField(
+        default=5,
         help_text=(
             'Number of values that learners can choose from for each answer option. '
             'For example, to create 5-point scale, set this to 5.'
@@ -149,15 +250,24 @@ class LikertScaleQuestion(QuantitativeQuestion):
     )
     range_min_text = models.CharField(
         max_length=50,
+        default='strongly disagree',
         help_text='Meaning of lowest value of Likert scale. For example: "Not very valuable".',
     )
     range_max_text = models.CharField(
         max_length=50,
+        default='strongly agree',
         help_text='Meaning of highest value of Likert scale. For example: "Extremely valuable."',
     )
 
     def __unicode__(self):
         return 'LikertScaleQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+
+    @property
+    def type(self):
+        """
+        Return string that specifies the exact type of this question.
+        """
+        return QuestionTypes.LIKERT
 
 
 class AnswerOption(models.Model):
@@ -165,9 +275,9 @@ class AnswerOption(models.Model):
     Represents a specific answer option for a quantitative learner profile question.
     """
     # Use generic relation to connect this model to QuantitativeQuestion (which is abstract).
-    question_type = models.ForeignKey(ContentType)
-    question_id = models.PositiveIntegerField()
-    question_object = GenericForeignKey('question_type', 'question_id')
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
 
     knowledge_component = models.OneToOneField(
         'KnowledgeComponent',
@@ -179,6 +289,7 @@ class AnswerOption(models.Model):
         help_text='Text to display for this answer option.',
     )
     allows_custom_input = models.BooleanField(
+        default=False,
         help_text=(
             'Whether this option allows learners to specify custom input. '
             'For example, a quantitative question might include an "Other" option '
@@ -188,14 +299,36 @@ class AnswerOption(models.Model):
         ),
     )
     influences_recommendations = models.BooleanField(
+        default=False,
         help_text=(
             'Whether answers to this answer option '
             'should be sent to the adaptive engine to tune recommendations.'
         ),
     )
 
+    class Meta:
+        ordering = ["-option_text"]
+
     def __unicode__(self):
         return 'AnswerOption {id}: {text}'.format(id=self.id, text=self.option_text)
+
+    def get_data(self, learner):
+        """
+        Return value that `learner` chose for this answer option.
+
+        If `answer_option` belongs to a multiple choice question,
+        the value returned will be 1 if the learner selected the answer option,
+        and 0 if the learner did not select the answer option.
+        """
+        try:
+            answer = QuantitativeAnswer.objects.get(answer_option=self, learner=learner)
+        except QuantitativeAnswer.DoesNotExist:
+            return None
+        else:
+            return {
+                'value': answer.value,
+                'custom_input': answer.custom_input or ''
+            }
 
 
 class Answer(models.Model):
@@ -212,7 +345,10 @@ class QualitativeAnswer(Answer):
     """
     Represents a learner's answer to a qualitative question.
     """
-    question = models.ForeignKey('QualitativeQuestion')
+    question = models.ForeignKey(
+        'QualitativeQuestion',
+        related_name='learner_answers',
+    )
     text = models.TextField(
         help_text='Answer that the learner provided to the associated question.',
     )
@@ -225,9 +361,25 @@ class QuantitativeAnswer(Answer):
     """
     Represents a learner's answer to a specific answer option of a quantitative question.
     """
-    answer_option = models.ForeignKey('AnswerOption')
+    answer_option = models.ForeignKey(
+        'AnswerOption',
+        related_name='learner_answers',
+    )
     value = models.PositiveIntegerField(
-        help_text='The value that the learner chose for the associated question.',
+        help_text=(
+            'The value that the learner chose for the associated answer option. '
+            'Note that if the answer option belongs to a multiple choice question, '
+            'this field will be set to 1 if the learner selected the answer option, '
+            'and to 0 if the learner did not select the answer option. '
+            'For ranking and Likert scale questions, this field will be set to the value '
+            'that the learner chose from the range of available values.'
+        ),
+    )
+    custom_input = models.CharField(
+        max_length=120,
+        blank=True,
+        null=True,
+        help_text='The input that a learner provided for a quantitative question that `allows_custom_input`.',
     )
 
     def __unicode__(self):

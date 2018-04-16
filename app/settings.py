@@ -126,6 +126,11 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'debug.log'),
         },
+        'file_test_log': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'test.log'),
+        },
     },
     'loggers': {
         'django.request': {
@@ -135,6 +140,16 @@ LOGGING = {
         },
         'django_lti_tool_provider.views': {
             'handlers': ['file_debug_log'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'lpd.views': {
+            'handlers': ['file_debug_log'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'lpd.tests': {
+            'handlers': ['file_test_log'],
             'level': 'DEBUG',
             'propagate': True,
         },

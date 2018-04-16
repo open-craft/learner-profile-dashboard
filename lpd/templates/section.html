@@ -1,0 +1,21 @@
+<form id="section-form" name="{{ form.form_name }}" action="#form" method="post" enctype="multipart/form-data">
+
+  {% csrf_token %}
+
+  <p class="section-title">{{ section.title }}</p>
+
+  <div class="section-questions">
+    {% for profile_question in section.questions %}
+      {% with question_template="question.html" %}
+        {% include question_template with question=profile_question %}
+      {% endwith %}
+    {% endfor %}
+  </div>
+
+  <div class="section-controls">
+    <button type="submit" class="section-submit">
+      Submit your answers
+    </button>
+  </div>
+
+</form>

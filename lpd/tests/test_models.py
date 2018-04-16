@@ -1,3 +1,4 @@
+import logging
 import random
 
 from django.test import TestCase
@@ -25,6 +26,8 @@ from lpd.tests.factories import (
 
 # Globals
 
+log = logging.getLogger(__name__)
+
 QUALITATIVE_QUESTION_FACTORIES = [
     QualitativeQuestionFactory,
 ]
@@ -34,6 +37,8 @@ QUANTITATIVE_QUESTION_FACTORIES = [
     LikertScaleQuestionFactory
 ]
 QUESTION_FACTORIES = QUALITATIVE_QUESTION_FACTORIES + QUANTITATIVE_QUESTION_FACTORIES
+
+QUESTION_BATCH_SIZE = 5  # Number of questions to create per question type
 
 
 # Classes
@@ -66,13 +71,15 @@ class SectionTests(TestCase):
         """
         Test that `questions` property returns questions belonging to `Section` in appropriate order.
         """
+        log.info('Testing `questions` property of `Section` model.')
         section = SectionFactory(lpd=self.lpd, title='Details, Details, Details')
         questions = []
-        question_batch_size = 5  # Number of questions to create per question type
-        question_numbers = sorted(random.sample(range(1, 100), question_batch_size*len(QUESTION_FACTORIES)))
-        for unused in range(question_batch_size):
+        question_numbers = sorted(random.sample(range(1, 100), QUESTION_BATCH_SIZE*len(QUESTION_FACTORIES)))
+        for unused in range(QUESTION_BATCH_SIZE):
             for question_factory in QUESTION_FACTORIES:
-                question = question_factory(section=section, number=question_numbers.pop(0))
+                question_number = question_numbers.pop(0)
+                log.info('Creating question #%d using %s.', question_number, question_factory)
+                question = question_factory(section=section, number=question_number)
                 questions.append(question)
         self.assertEqual(section.questions, questions)
 
@@ -87,11 +94,13 @@ class QuestionTests(TestCase):
         """
         Test that `section_number` property returns appropriate value.
         """
+        log.info('Testing `section_number` property of `Question` model.')
         sections = SectionFactory.build_batch(3, lpd=self.lpd)
 
         for section in sections:
             question_factory = random.choice(QUESTION_FACTORIES)
-            questions = question_factory.build_batch(5, section=section)
+            log.info('Creating %d questions using %s.', QUESTION_BATCH_SIZE, question_factory)
+            questions = question_factory.build_batch(QUESTION_BATCH_SIZE, section=section)
             for question in questions:
                 self.assertEqual(question.section_number, '{}.{}'.format(section.order, question.number))
 

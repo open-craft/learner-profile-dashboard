@@ -98,11 +98,11 @@ class QuestionTests(TestCase):
         sections = SectionFactory.build_batch(3, lpd=self.lpd)
 
         for section in sections:
-            question_factory = random.choice(QUESTION_FACTORIES)
-            log.info('Creating %d questions using %s.', QUESTION_BATCH_SIZE, question_factory)
-            questions = question_factory.build_batch(QUESTION_BATCH_SIZE, section=section)
-            for question in questions:
-                self.assertEqual(question.section_number, '{}.{}'.format(section.order, question.number))
+            for question_factory in QUESTION_FACTORIES:
+                log.info('Creating %d questions using %s.', QUESTION_BATCH_SIZE, question_factory)
+                questions = question_factory.build_batch(QUESTION_BATCH_SIZE, section=section)
+                for question in questions:
+                    self.assertEqual(question.section_number, '{}.{}'.format(section.order, question.number))
 
 
 class QualitativeQuestionTests(TestCase):

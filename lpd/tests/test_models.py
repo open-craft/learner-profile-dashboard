@@ -162,15 +162,15 @@ class MultipleChoiceQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         """
         Test string representation of `MultipleChoiceQuestion` model.
         """
-        question = MultipleChoiceQuestionFactory(question_text='Is this a multiple choice question?')
+        question = self.question_factory(question_text='Is this a multiple choice question?')
         self.assertEqual(str(question), 'MultipleChoiceQuestion 1: Is this a multiple choice question?')
 
     def test_type(self):
         """
         Test that `type` property returns appropriate value.
         """
-        mcq = MultipleChoiceQuestionFactory(max_options_to_select=1)
-        mrq = MultipleChoiceQuestionFactory(max_options_to_select=5)
+        mcq = self.question_factory(max_options_to_select=1)
+        mrq = self.question_factory(max_options_to_select=5)
         self.assertEqual(mcq.type, QuestionTypes.MCQ)
         self.assertEqual(mrq.type, QuestionTypes.MRQ)
 
@@ -185,14 +185,14 @@ class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         """
         Test string representation of `RankingQuestion` model.
         """
-        question = RankingQuestionFactory(question_text='Is this a ranking question?')
+        question = self.question_factory(question_text='Is this a ranking question?')
         self.assertEqual(str(question), 'RankingQuestion 1: Is this a ranking question?')
 
     def test_type(self):
         """
         Test that `type` property returns appropriate value.
         """
-        question = RankingQuestionFactory()
+        question = self.question_factory()
         self.assertEqual(question.type, QuestionTypes.RANKING)
 
     def test_unranked_option_value(self):
@@ -200,7 +200,7 @@ class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         Test that `unranked_option_value` returns appropriate value.
         """
         for rank in [3, 5, 10]:
-            RankingQuestionFactory(number_of_options_to_rank=rank)
+            self.question_factory(number_of_options_to_rank=rank)
         self.assertEqual(RankingQuestion.unranked_option_value(), 11)
 
 
@@ -214,14 +214,14 @@ class LikertScaleQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         """
         Test string representation of `LikertScaleQuestion` model.
         """
-        question = LikertScaleQuestionFactory(question_text='Is this a Likert scale question?')
+        question = self.question_factory(question_text='Is this a Likert scale question?')
         self.assertEqual(str(question), 'LikertScaleQuestion 1: Is this a Likert scale question?')
 
     def test_type(self):
         """
         Test that `type` property returns appropriate value.
         """
-        question = LikertScaleQuestionFactory()
+        question = self.question_factory()
         self.assertEqual(question.type, QuestionTypes.LIKERT)
 
 

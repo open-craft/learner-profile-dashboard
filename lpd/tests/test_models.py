@@ -68,8 +68,9 @@ class SectionTests(TestCase):
         """
         section = SectionFactory(lpd=self.lpd, title='Details, Details, Details')
         questions = []
-        question_numbers = sorted(random.sample(range(1, 100), 20))
-        for unused in range(5):
+        question_batch_size = 5  # Number of questions to create per question type
+        question_numbers = sorted(random.sample(range(1, 100), question_batch_size*len(QUESTION_FACTORIES)))
+        for unused in range(question_batch_size):
             for question_factory in QUESTION_FACTORIES:
                 question = question_factory(section=section, number=question_numbers.pop(0))
                 questions.append(question)

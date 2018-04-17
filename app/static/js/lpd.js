@@ -126,7 +126,8 @@ $(document).ready(function() {
         if ($.inArray(questionType, MC_QUESTION_TYPES) > -1) {
             answerOptionValue = $answerOption.is(':checked') ? 1 : 0;
         } else if ($.inArray(questionType, RANKING_QUESTION_TYPES) > -1) {
-            answerOptionValue = $answerOption.find('.option-rank:checked').val();
+            var rawValue = $answerOption.find('.option-rank:checked').val();
+            answerOptionValue = parseInt(rawValue, 10);
         }
         return answerOptionValue;
     };

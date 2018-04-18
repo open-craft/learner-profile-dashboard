@@ -20,6 +20,17 @@ $(document).ready(function() {
 
     // Functions
 
+    var renderChecked = function() {
+        var optionInputs = $('.mc-option, .mr-option, .option-rank');
+        optionInputs.each(function(i, optionInput) {
+            if ($(optionInput).attr('checked') === 'checked') {
+                $(optionInput).prop('checked', true);
+            } else {
+                $(optionInput).prop('checked', false);
+            }
+        });
+    };
+
     var updateOptionGroups = function() {
         var $optionGroups = $('.mr-options');
         $optionGroups.each(function(i, optionGroup) {
@@ -200,6 +211,7 @@ $(document).ready(function() {
             dataType: 'json'
         });
 
+        renderChecked();
         updateOptionGroups();
     };
 

@@ -1,0 +1,3 @@
+-r base.txt
+uWSGI==2.0.15
+mysqlclient==1.3.12

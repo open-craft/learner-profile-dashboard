@@ -5,6 +5,7 @@ import factory
 
 from lpd.constants import QuestionTypes
 from lpd.models import (
+    KnowledgeComponent,
     LearnerProfileDashboard,
     LikertScaleQuestion,
     MultipleChoiceQuestion,
@@ -102,3 +103,10 @@ class QualitativeAnswerFactory(factory.DjangoModelFactory):
 
     learner = factory.SubFactory(UserFactory)
     question = factory.SubFactory(QualitativeQuestionFactory)
+
+
+class KnowledgeComponentFactory(factory.DjangoModelFactory):
+    """Factory for knowledge components."""
+    class Meta:
+        model = KnowledgeComponent
+        django_get_or_create = ['kc_id']

@@ -8,15 +8,15 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils.decorators import method_decorator
 
-from lpd.constants import QuestionTypes
 from lpd.models import (
     AnswerOption,
     LearnerProfileDashboard,
     LearnerProfileDashboardForm,
-    RankingQuestion,
     QualitativeAnswer,
     QualitativeQuestion,
     QuantitativeAnswer,
+    QuantitativeQuestion,
+    Score,
 )
 
 
@@ -98,33 +98,87 @@ class LPDSubmitView(View):
     @classmethod
     def _process_quantitative_answers(cls, user, quantitative_answers):
         """
-        Create or update `QuantitativeAnswer` for current learner, for each quantitative answer in request.
+        Process `quantitative_answers` from `user`.
+
+        For each quantitative answer from request, this involves:
+
+        - Creating/updating a `QuantitativeAnswer` for `user` and appropriate answer option
+        - Creating/updating a `Score` for `user` and appropriate knowledge component
+
+        Notes:
+
+        - Both of these steps only happen if we can extract a meaningful value
+          from a given quantitative answer. If that's not the case
+          (i.e., if value is `None`), the answer will be skipped.
+        - The second step only happens if a given quantitative answer is associated with an answer option that
+          - is configured to influence recommendations.
+          - is linked to a knowledge component.
         """
         for quantitative_answer in quantitative_answers:
+            # Extract relevant information about answer
             question_type = quantitative_answer.get('question_type')
             answer_option_id = quantitative_answer.get('answer_option_id')
-            answer_option = AnswerOption.objects.get(id=answer_option_id)
-            value = quantitative_answer.get('answer_option_value')
+            raw_value = quantitative_answer.get('answer_option_value')
             custom_input = quantitative_answer.get('answer_option_custom_input')
+
+            # Get value to store and compute score from
+            value = QuantitativeQuestion.get_value(question_type, raw_value)
+
             if value is None:
-                if question_type == QuestionTypes.RANKING:
-                    value = RankingQuestion.unranked_option_value()
-                elif question_type == QuestionTypes.LIKERT:
-                    # If learner did not select a value for an answer to a Likert scale question,
-                    # we simply consider it unanswered.
-                    continue
-            answer_data = dict(value=value)
-            if custom_input:
-                answer_data['custom_input'] = custom_input
-            log.info(
-                'Creating or updating answer from user %s for answer option %s. New data: %s',
-                user, answer_option, answer_data
-            )
-            QuantitativeAnswer.objects.update_or_create(
-                learner=user,
-                answer_option=answer_option,
-                defaults=answer_data,
-            )
+                continue
+
+            # We have a meaningful `value`, so fetch answer option that answer belongs to from DB
+            answer_option = AnswerOption.objects.get(id=answer_option_id)
+
+            # Create or update answer for answer option
+            cls._update_or_create_answer(user, answer_option, value, custom_input)
+            # Create or update score for adaptive engine
+            cls._update_or_create_score(user, question_type, answer_option, value)
+
+    @classmethod
+    def _update_or_create_answer(cls, user, answer_option, value, custom_input):
+        """
+        Create or update `QuantitativeAnswer` for `user` and `answer_option`,
+        taking into account `value` and `custom_input`.
+
+        Note that this method should only be called
+        if `value` is meaningful (i.e., if it is not `None`).
+        """
+        answer_data = dict(value=value)
+        if custom_input is not None:
+            answer_data['custom_input'] = custom_input
+
+        log.info(
+            'Creating or updating answer from user %s for answer option %s. New data: %s',
+            user, answer_option, answer_data
+        )
+
+        QuantitativeAnswer.objects.update_or_create(
+            learner=user,
+            answer_option=answer_option,
+            defaults=answer_data,
+        )
+
+    @classmethod
+    def _update_or_create_score(cls, user, question_type, answer_option, value):
+        """
+        Create or update `Score` for `user` and knowledge component associated with `answer_option`.
+
+        Note that this method should only be called
+        if `value` is meaningful (i.e., if it is not `None`).
+        """
+        if answer_option.influences_recommendations:
+            knowledge_component = answer_option.knowledge_component
+            if knowledge_component:
+                score_value = QuantitativeQuestion.get_score(question_type, value)
+                score_data = dict(value=score_value)
+                Score.objects.update_or_create(
+                    knowledge_component=knowledge_component,
+                    learner=user,
+                    defaults=score_data
+                )
+            else:
+                log.error('Could not create score because %s is not linked to a knowledge component.', answer_option)
 
 
 class LearnerProfileDashboardView(object):

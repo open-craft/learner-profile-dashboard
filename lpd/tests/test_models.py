@@ -1,14 +1,19 @@
 import logging
 import random
 
+import ddt
 from django.test import TestCase
+from mock import call, patch
 
-from lpd.constants import QuestionTypes
+from lpd.constants import QuestionTypes, UnknownQuestionTypeError
 from lpd.models import (
     AnswerOption,
     KnowledgeComponent,
     LearnerProfileDashboard,
+    LikertScaleQuestion,
+    MultipleChoiceQuestion,
     QuantitativeAnswer,
+    QuantitativeQuestion,
     RankingQuestion,
     Score
 )
@@ -135,6 +140,66 @@ class QualitativeQuestionTests(TestCase):
         self.assertEqual(question.get_answer(learner), answer.text)
 
 
+@ddt.ddt
+class QuantitativeQuestionTests(TestCase):
+    """QuantitativeQuestion model tests."""
+
+    def setUp(self):
+        self.unranked_option_value = 9
+        for number_of_options_to_rank in range(2, self.unranked_option_value, 2):
+            RankingQuestionFactory(number_of_options_to_rank=number_of_options_to_rank)
+
+    @patch('lpd.models.MultipleChoiceQuestion._get_score')
+    @patch('lpd.models.RankingQuestion._get_score')
+    @patch('lpd.models.LikertScaleQuestion._get_score')
+    def test_get_score(self, patched_likert_get_score, patched_ranking_get_score, patched_mc_get_score):
+        """
+        Verify that `get_score` dispatches to subclass methods appropriately,
+        and raises exception for unknown question type.
+        """
+        with self.assertRaises(UnknownQuestionTypeError):
+            QuantitativeQuestion.get_score('invalid_question_type', 42)
+
+        patched_mc_get_score.return_value = 0
+        patched_ranking_get_score.return_value = 23
+        patched_likert_get_score.return_value = 42
+
+        # MCQs
+        score = QuantitativeQuestion.get_score(QuestionTypes.MCQ, 1)
+        patched_mc_get_score.assert_has_calls([call(1)])
+        self.assertEqual(score, 0)
+        # MRQs
+        score = QuantitativeQuestion.get_score(QuestionTypes.MRQ, 1)
+        patched_mc_get_score.assert_has_calls([call(1), call(1)])
+        self.assertEqual(score, 0)
+        # Ranking questions
+        score = QuantitativeQuestion.get_score(QuestionTypes.RANKING, 2)
+        patched_ranking_get_score.assert_called_once_with(2)
+        self.assertEqual(score, 23)
+        # Likert scale questions
+        score = QuantitativeQuestion.get_score(QuestionTypes.LIKERT, 3)
+        patched_likert_get_score.assert_called_once_with(3)
+        self.assertEqual(score, 42)
+
+    @ddt.data(
+        (QuestionTypes.MCQ, 1, 1),
+        (QuestionTypes.MCQ, 0, 0),
+        (QuestionTypes.MRQ, 1, 1),
+        (QuestionTypes.MRQ, 0, 0),
+        (QuestionTypes.RANKING, 3, 3),
+        (QuestionTypes.RANKING, None, 9),
+        (QuestionTypes.LIKERT, 2, 2),
+        (QuestionTypes.LIKERT, None, None),
+    )
+    @ddt.unpack
+    def test_get_value(self, question_type, raw_value, expected_value):
+        """
+        Test that `get_value` returns appropriate values for different question types.
+        """
+        value = QuantitativeQuestion.get_value(question_type, raw_value)
+        self.assertEqual(value, expected_value)
+
+
 class QuantitativeQuestionTestMixin(object):
     """Mixin for tests targeting QuantitativeQuestion models."""
 
@@ -162,6 +227,7 @@ class QuantitativeQuestionTestMixin(object):
         self.assertEqual(answer_options, [answer_option1, answer_option2, answer_option0])
 
 
+@ddt.ddt
 class MultipleChoiceQuestionTests(TestCase, QuantitativeQuestionTestMixin):
     """MultipleChoiceQuestion model tests."""
 
@@ -184,7 +250,24 @@ class MultipleChoiceQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         self.assertEqual(mcq.type, QuestionTypes.MCQ)
         self.assertEqual(mrq.type, QuestionTypes.MRQ)
 
+    @ddt.data(
+        (0, 1),
+        (1, 0),
+    )
+    @ddt.unpack
+    def test__get_score(self, value, expected_score):
+        """
+        Test that `_get_score` returns appropriate value
+        and raises exception for invalid values.
+        """
+        with self.assertRaises(AssertionError):
+            MultipleChoiceQuestion._get_score(value+23)
 
+        score = MultipleChoiceQuestion._get_score(value)
+        self.assertEqual(score, expected_score)
+
+
+@ddt.ddt
 class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
     """RankingQuestion model tests."""
 
@@ -213,6 +296,21 @@ class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
             self.question_factory(number_of_options_to_rank=rank)
         self.assertEqual(RankingQuestion.unranked_option_value(), 11)
 
+    @ddt.data(
+        (1, 0.0),
+        (2, 1.0/3),
+        (3, 2.0/3),
+        (4, 1.0),
+    )
+    @ddt.unpack
+    def test__get_score(self, value, expected_score):
+        """
+        Test that `_get_score` returns appropriate value.
+        """
+        self.question_factory(number_of_options_to_rank=3)
+        score = RankingQuestion._get_score(value)
+        self.assertEqual(score, expected_score)
+
 
 class LikertScaleQuestionTests(TestCase, QuantitativeQuestionTestMixin):
     """LikertScaleQuestion model tests."""
@@ -233,6 +331,13 @@ class LikertScaleQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         """
         question = self.question_factory()
         self.assertEqual(question.type, QuestionTypes.LIKERT)
+
+    def test__get_score(self):
+        """
+        Verify that `_get_score` is stubbed out.
+        """
+        with self.assertRaises(NotImplementedError):
+            LikertScaleQuestion._get_score(42)
 
 
 class AnswerOptionTests(TestCase):

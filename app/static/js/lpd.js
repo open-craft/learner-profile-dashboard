@@ -20,6 +20,17 @@ $(document).ready(function() {
 
     // Functions
 
+    var renderChecked = function() {
+        var optionInputs = $('.mc-option, .mr-option, .option-rank');
+        optionInputs.each(function(i, optionInput) {
+            if ($(optionInput).attr('checked') === 'checked') {
+                $(optionInput).prop('checked', true);
+            } else {
+                $(optionInput).prop('checked', false);
+            }
+        });
+    };
+
     var updateOptionGroups = function() {
         var $optionGroups = $('.mr-options');
         $optionGroups.each(function(i, optionGroup) {
@@ -126,7 +137,8 @@ $(document).ready(function() {
         if ($.inArray(questionType, MC_QUESTION_TYPES) > -1) {
             answerOptionValue = $answerOption.is(':checked') ? 1 : 0;
         } else if ($.inArray(questionType, RANKING_QUESTION_TYPES) > -1) {
-            answerOptionValue = $answerOption.find('.option-rank:checked').val();
+            var rawValue = $answerOption.find('.option-rank:checked').val();
+            answerOptionValue = parseInt(rawValue, 10);
         }
         return answerOptionValue;
     };
@@ -199,6 +211,7 @@ $(document).ready(function() {
             dataType: 'json'
         });
 
+        renderChecked();
         updateOptionGroups();
     };
 

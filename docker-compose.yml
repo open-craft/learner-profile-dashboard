@@ -1,0 +1,45 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:latest
+    volumes:
+      - ./db:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+      - MYSQL_DATABASE=$LPD_DB_NAME
+      - MYSQL_USER=$LPD_DB_USER
+      - MYSQL_PASSWORD=$LPD_DB_PASSWORD
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf:/etc/nginx/conf.d
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+  web:
+    build: .
+    environment:
+      - DOCKER_SETUP=1
+      - LPD_DB_NAME=$LPD_DB_NAME
+      - LPD_DB_USER=$LPD_DB_USER
+      - LPD_DB_PASSWORD=$LPD_DB_PASSWORD
+      - SECRET_KEY=$SECRET_KEY
+      - LTI_CLIENT_KEY=$LTI_CLIENT_KEY
+      - LTI_CLIENT_SECRET=$LTI_CLIENT_SECRET
+      - PASSWORD_GENERATOR_NONCE=$PASSWORD_GENERATOR_NONCE
+      - ALLOWED_HOSTS=$ALLOWED_HOSTS
+      - DEBUG=$DEBUG
+    command: uwsgi --ini uwsgi.ini
+    working_dir: /code
+    volumes:
+      - .:/code
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db

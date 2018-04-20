@@ -17,7 +17,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = (os.environ.get('DEBUG', 'True') == 'True')
 
 ALLOWED_HOSTS = []
 
@@ -169,11 +169,26 @@ LTI_CLIENT_SECRET = os.environ.get('LTI_CLIENT_SECRET', 'SET-ME')
 # If compromised, attackers would be able to restore any student's password knowing their anonymous user ID from LMS.
 PASSWORD_GENERATOR_NONCE = os.environ.get('PASSWORD_GENERATOR_NONCE', 'SET-ME')
 
-# pylint: disable=wildcard-import
-try:
-    from .local_settings import *  # NOQA
-except ImportError:
-    import warnings
-    warnings.warn(
-        'File local_settings.py not found.  You probably want to add it -- see README.md.'
-    )
+# If it's a docker setup, the variables are imported via .env file
+if os.environ.get('DOCKER_SETUP', False):
+    ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ['LPD_DB_NAME'],
+            'USER': os.environ['LPD_DB_USER'],
+            'PASSWORD': os.environ['LPD_DB_PASSWORD'],
+            'HOST': 'db',
+            'PORT': '3306'
+        }
+    }
+
+else:  # The variables in non-Docker should be set-up in local_settings.py
+    try:
+        # pylint: disable=wildcard-import
+        from .local_settings import *  # NOQA
+    except ImportError:
+        import warnings
+        warnings.warn(
+            'File local_settings.py not found.  You probably want to add it -- see README.md.'
+        )

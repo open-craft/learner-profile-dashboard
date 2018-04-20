@@ -3,7 +3,7 @@ LTI Learner Profile Dashboard
 
 ## Setting up the development server
 
-There're are two options for setting up the development server:
+There're two options for setting up the development server:
 - [using Docker](#setting-up-the-development-server-with-docker)
 - [without Docker](#setting-up-the-development-server-without-docker)
 
@@ -17,39 +17,45 @@ There're are two options for setting up the development server:
 #### Instructions
 
 1. Create `.env` file by copying `example.env` file:
-```
-cp example.env .env
-```
 
-1. Set the sensitive variables in newly-created `.env` file:
+    ```
+    cp example.env .env
+    ```
+
+1. Set the sensitive variables in newly-created `.env` file.
 
 1. Run:
-```
-docker-compose up
-```
+
+    ```
+    docker-compose up
+    ```
 
 1. Once all three containers are running, find out the name of the `web` container:
-```
-docker ps
-```
+
+    ```
+    docker ps
+    ```
 
   (This will be proabably `learnerprofiledashboard_web_1`)
 
 1. Get into `web` container by running:
-```
-docker exec -it <name_of_the_container> /bin/bash
-```
+
+    ```
+    docker exec -it <name_of_the_container> /bin/bash
+    ```
 
 1. Inside the container initialize app, running migrations and creating a superuser:
-```
-./manage.py migrate
-./manage.py createsuperuser
-```
+
+    ```
+    ./manage.py migrate
+    ./manage.py createsuperuser
+    ```
 
 1. Exit container shell:
-```
-exit
-```
+
+    ```
+    exit
+    ```
 
 
 ### Setting up the development server without Docker

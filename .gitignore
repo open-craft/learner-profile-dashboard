@@ -1,10 +1,10 @@
+.env
 *.log
 *.py[cdo]
 *.sqlite
+/db
 /media
+/src
 /static
 .coverage
 /app/local_settings.py
-/db
-/src
-.env

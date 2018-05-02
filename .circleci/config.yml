@@ -13,6 +13,7 @@ jobs:
           keys:
           - v1-dependencies-{{ checksum "requirements.txt" }}
           - v1-dependencies-
+          - nltk-data
 
       - run:
           name: install dependencies
@@ -36,3 +37,9 @@ jobs:
           path: test-reports
           destination: test-reports
           version: 2
+
+      - save_cache:
+          paths:
+            - /usr/share/nltk_data
+
+          key: nltk-data

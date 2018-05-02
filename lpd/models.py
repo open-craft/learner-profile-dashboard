@@ -8,6 +8,7 @@ from django.db.models import Max
 from ordered_model.models import OrderedModel
 
 from lpd.constants import QuestionTypes, UnknownQuestionTypeError
+from lpd.qualitative_data_analysis import calculate_probabilities
 
 
 class LearnerProfileDashboard(models.Model):
@@ -146,6 +147,23 @@ class QualitativeQuestion(Question):
             return ''
         else:
             return answer.text
+
+    @classmethod
+    def update_scores(cls, learner):
+        """
+        Updates scores for knowledge components of a given learner
+        based on all of learner's QualtitiveAnswers.
+        """
+        answers = QualitativeAnswer.objects.filter(learner=learner).values_list('text', flat=True)
+        probabilities = calculate_probabilities(answers)
+
+        for kc_id, probability in probabilities.items():
+            knowledge_component = KnowledgeComponent.objects.get(kc_id=kc_id)
+            Score.objects.update_or_create(
+                knowledge_component=knowledge_component,
+                learner=learner,
+                defaults={'value': probability}
+            )
 
 
 class QuantitativeQuestion(Question):

@@ -6,6 +6,7 @@ from lpd import qualitative_data_analysis as qda
 
 @ddt
 class QualtitiveDataAnalysisTestCase(TestCase):
+    """Tests for qualitative data analysis."""
 
     @data(
         (
@@ -22,8 +23,11 @@ class QualtitiveDataAnalysisTestCase(TestCase):
         )
     )
     @unpack
-    def test_clean_doc(self, doc, expected_after_cleaning):
-        self.assertEqual(qda.clean_doc(doc), expected_after_cleaning)
+    def test_clean_document(self, document, expected_after_cleaning):
+        """
+        Test that `clean_document` correctly lower-cases `document` and removes punctuation from it.
+        """
+        self.assertEqual(qda.clean_document(document), expected_after_cleaning)
 
     @data(
         (
@@ -41,5 +45,9 @@ class QualtitiveDataAnalysisTestCase(TestCase):
         )
     )
     @unpack
-    def test_make_doc(self, answers, expected_doc):
-        self.assertEqual(qda.make_doc(answers), expected_doc)
+    def test_make_document(self, answers, expected_document):
+        """
+        Test that `make_document` correctly combines `answers`
+        and performs stemming for inflected forms of 'teach' root.
+        """
+        self.assertEqual(qda.make_document(answers), expected_document)

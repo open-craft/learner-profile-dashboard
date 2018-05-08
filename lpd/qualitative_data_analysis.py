@@ -5,14 +5,23 @@ from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
-EXTRA_STOP_WORDS_FOR_TFIDF = ['education', 'students', 'students', 'school',
-                              'learning', 'learn', 'experience', 'teach',
-                              'working']
+# Globals
 
-lda = settings.LDA_MODEL
+EXTRA_STOP_WORDS_FOR_TFIDF = [
+    'education',
+    'experience',
+    'learn',
+    'learning',
+    'school',
+    'students',
+    'teach',
+    'working'
+]
 
 
-def clean_doc(document):
+# Functions
+
+def clean_document(document):
     """
     Clean the document (by casting to lowercase and removing punctation).
     """
@@ -21,40 +30,52 @@ def clean_doc(document):
     return document
 
 
-def make_doc(answers):
+def make_document(answers):
     """
     Compose one document out of multiple answers.
+
+    Clean up document and perform additional pre-processing steps before returning it.
     """
-    clean = clean_doc(" ".join(answers))
-    words = word_tokenize(clean)
+    raw_document = ' '.join(answers)
+    document = clean_document(raw_document)
 
-    # reduce instances of "teach-" to "teach"
-    t = ['teaching', 'teacher', 'teachers']
-    cleaner = [i if i not in t else "teach" for i in words]
-    doc = " ".join(cleaner)
+    # Tokenize document
+    words = word_tokenize(document)
 
-    return doc
+    # Perform stemming for inflected forms of "teach" root
+    words_to_stem = ['teaching', 'teacher', 'teachers']
+    cleaned_words = [word if word not in words_to_stem else "teach" for word in words]
+
+    # Put document back together
+    cleaned_document = ' '.join(cleaned_words)
+
+    return cleaned_document
 
 
-def make_tfidf_matrix(doc):
+def make_tfidf_matrix(document):
     """
     Compose tfidf matrix (sparse word frequency matrix) of a single document.
     """
     tfidf = TfidfVectorizer(max_features=1000, stop_words='english')
-    stops = list(tfidf.get_stop_words()) + EXTRA_STOP_WORDS_FOR_TFIDF
-    tfidf.set_params(stop_words=stops)
-    tfidf_matrix = tfidf.fit_transform(doc)
+    stop_words = list(tfidf.get_stop_words()) + EXTRA_STOP_WORDS_FOR_TFIDF
+    tfidf.set_params(stop_words=stop_words)
+    tfidf_matrix = tfidf.fit_transform(document)
 
     return tfidf_matrix
 
 
 def calculate_probabilities(answers):
     """
-    Calculates a vector of probabilities reflecting how likely learner is
-    to belong to the different groups (different knowledge components).
+    Calculates a vector of probabilities reflecting how likely a learner is
+    to belong to different groups (represented by different knowledge components),
+    based on the set of qualitative `answers` that the learner provided.
 
-    The calculations are based on LDA model that have been constructed in the past
-    and should be added to the project as `lda.pkl` file in the root directory.
+    Note that the set of `answers` passed to this function
+    should only include answers to qualitative questions that are configured
+    to influence recommendations.
+
+    The calculations are based on LDA model that has been constructed in the past
+    and is available to the app as an `lda.pkl` file in the root directory of the project.
 
     Returns a dictionary in the following form:
     {
@@ -62,13 +83,13 @@ def calculate_probabilities(answers):
         'kc_id_2': 0.8
     }
     """
-    doc = make_doc(answers)
-    tfidf_matrix = make_tfidf_matrix([doc])
-    weights = lda.transform(tfidf_matrix)
+    document = make_document(answers)
+    tfidf_matrix = make_tfidf_matrix([document])
+    weights = settings.LDA_MODEL.transform(tfidf_matrix)
 
     probabilities = {
-        settings.GROUPS_KCS[id]: weight
-        for id, weight in enumerate(weights)
+        settings.GROUP_KCS[index]: weight
+        for index, weight in enumerate(weights)
     }
 
     return probabilities

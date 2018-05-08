@@ -151,10 +151,14 @@ class QualitativeQuestion(Question):
     @classmethod
     def update_scores(cls, learner):
         """
-        Updates scores for knowledge components of a given learner
-        based on all of learner's QualtitiveAnswers.
+        Updates scores for knowledge components representing groups
+        that a given learner might belong to,
+        based on all of the learner's QualitativeAnswers.
         """
-        answers = QualitativeAnswer.objects.filter(learner=learner).values_list('text', flat=True)
+        answers = QualitativeAnswer.objects.filter(
+            question__influences_group_membership=True,
+            learner=learner,
+        ).values_list('text', flat=True)
         probabilities = calculate_probabilities(answers)
 
         for kc_id, probability in probabilities.items():

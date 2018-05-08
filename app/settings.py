@@ -173,7 +173,7 @@ LTI_CLIENT_SECRET = os.environ.get('LTI_CLIENT_SECRET', 'SET-ME')
 PASSWORD_GENERATOR_NONCE = os.environ.get('PASSWORD_GENERATOR_NONCE', 'SET-ME')
 
 # LDA model settings for the data analysis of qualitative answers - should be overwritten in local_settings.py
-GROUPS_KCS = ['kc_id_1_set-me', 'kc_id_2_set-me']
+GROUP_KCS = ['kc_id_1_set-me', 'kc_id_2_set-me']
 
 # Make sure you provided your LDA_MODEL file.
 LDA_MODEL = joblib.load(

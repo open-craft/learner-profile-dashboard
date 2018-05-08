@@ -112,52 +112,79 @@ class QuestionTests(TestCase):
                     self.assertEqual(question.section_number, '{}.{}'.format(section.order, question.number))
 
 
-# pylint: disable=too-many-instance-attributes
-# Ten is reasonable in this case.
 class QualitativeQuestionTests(TestCase):
     """QualitativeQuestion model tests."""
 
     def setUp(self):
-        self.qualitative_question_1 = QualitativeQuestionFactory(
-            question_text='Is this a qualitative question?'
+        qualitative_question_1 = QualitativeQuestionFactory(
+            question_text='Is this a qualitative question?',
+            influences_group_membership=True,
         )
-        self.qualitative_question_2 = QualitativeQuestionFactory(
-            question_text='Is this another qualitative question?'
+        qualitative_question_2 = QualitativeQuestionFactory(
+            question_text='Is this another qualitative question?',
+            influences_group_membership=True,
+        )
+        qualitative_question_3 = QualitativeQuestionFactory(
+            question_text='Is this another qualitative question?',
+            influences_group_membership=False,
         )
 
         self.learner_1 = UserFactory()
         self.learner_2 = UserFactory()
-        self.learner_1_answer_to_question_1 = 'Learner 1 answers to question_1'
-        self.learner_1_answer_to_question_2 = 'Learner 1 answers to question_2'
-        self.learner_2_answer_to_question_1 = 'Learner 1 answers to question_1'
+
+        self.learner_1_answer_to_question_1 = "Learner 1's answer to question_1"
+        self.learner_1_answer_to_question_2 = "Learner 1's answer to question_2"
+        # This answer should be ignored when updating scores
+        # because the question that it belongs to is set up to *not* influence group membership
+        learner_1_answer_to_question_3 = "Learner 1's answer to question_3"
+
+        self.learner_2_answer_to_question_1 = "Learner 2's answer to question_1"
+        # This answer should be ignored when updating scores
+        # because the question that it belongs to is set up to *not* influence group membership
+        learner_2_answer_to_question_3 = "Learner 2's answer to question_3"
+
         self.kc_1 = KnowledgeComponentFactory(
             kc_id='kc_id_1', kc_name='knowledge_component_1'
         )
         self.kc_2 = KnowledgeComponentFactory(
             kc_id='kc_id_2', kc_name='knowledge_component_2'
         )
-        self.kc_3 = KnowledgeComponentFactory(
-            kc_id='kc_id_3', kc_name='knowledge_component_3'
-        )
 
         QualitativeAnswerFactory(
-            learner=self.learner_1, question=self.qualitative_question_1,
-            text=self.learner_1_answer_to_question_1
+            learner=self.learner_1,
+            question=qualitative_question_1,
+            text=self.learner_1_answer_to_question_1,
         )
         QualitativeAnswerFactory(
-            learner=self.learner_1, question=self.qualitative_question_2,
-            text=self.learner_1_answer_to_question_2
+            learner=self.learner_1,
+            question=qualitative_question_2,
+            text=self.learner_1_answer_to_question_2,
         )
         QualitativeAnswerFactory(
-            learner=self.learner_2, question=self.qualitative_question_1,
-            text=self.learner_2_answer_to_question_1
+            learner=self.learner_1,
+            question=qualitative_question_3,
+            text=learner_1_answer_to_question_3,
+        )
+        QualitativeAnswerFactory(
+            learner=self.learner_2,
+            question=qualitative_question_1,
+            text=self.learner_2_answer_to_question_1,
+        )
+        QualitativeAnswerFactory(
+            learner=self.learner_2,
+            question=qualitative_question_3,
+            text=learner_2_answer_to_question_3,
         )
 
     def test_str(self):
         """
         Test string representation of `QualitativeQuestion` model.
         """
-        self.assertEqual(str(self.qualitative_question_1), 'QualitativeQuestion 1: Is this a qualitative question?')
+        qualitative_question = QualitativeQuestionFactory(question_text='Is this a qualitative question?',)
+        self.assertEqual(
+            str(qualitative_question),
+            'QualitativeQuestion {id}: Is this a qualitative question?'.format(id=qualitative_question.id)
+        )
 
     def test_type(self):
         """
@@ -187,57 +214,65 @@ class QualitativeQuestionTests(TestCase):
             'kc_id_1': 0.2, 'kc_id_2': 0.8
         }
 
-        # update the scores of learner_1 and assert the results are correct
+        # Update scores of learner_1 and assert that the results are correct
         QualitativeQuestion.update_scores(self.learner_1)
 
         self.assertItemsEqual(
             patched_calculate_probabilities.call_args[0][0],
             [self.learner_1_answer_to_question_1, self.learner_1_answer_to_question_2]
         )
+        self.assertEqual(Score.objects.all().count(), 2)
         self.assertEqual(Score.objects.filter(learner=self.learner_1).count(), 2)
         self.assertEqual(Score.objects.filter(learner=self.learner_2).count(), 0)
-        self.assertEqual(Score.objects.all().count(), 2)
         self.assertEqual(
             Score.objects.get(
-                learner=self.learner_1, knowledge_component=self.kc_1).value,
+                learner=self.learner_1, knowledge_component=self.kc_1
+            ).value,
             0.2
         )
         self.assertEqual(
             Score.objects.get(
-                learner=self.learner_1, knowledge_component=self.kc_2).value,
+                learner=self.learner_1, knowledge_component=self.kc_2
+            ).value,
             0.8
         )
 
-        # update the scores of learner_2 and assert the results are correct
         patched_calculate_probabilities.return_value = {
             'kc_id_1': 0.3, 'kc_id_2': 0.7
         }
+
+        # Update scores of learner_2 and assert that the results are correct
         QualitativeQuestion.update_scores(self.learner_2)
+
         self.assertItemsEqual(
             patched_calculate_probabilities.call_args[0][0],
             [self.learner_2_answer_to_question_1]
         )
+        self.assertEqual(Score.objects.all().count(), 4)
         self.assertEqual(Score.objects.filter(learner=self.learner_1).count(), 2)
         self.assertEqual(Score.objects.filter(learner=self.learner_2).count(), 2)
-        self.assertEqual(Score.objects.all().count(), 4)
         self.assertEqual(
             Score.objects.get(
-                learner=self.learner_1, knowledge_component=self.kc_1).value,
+                learner=self.learner_1, knowledge_component=self.kc_1
+            ).value,
             0.2
         )
         self.assertEqual(
             Score.objects.get(
-                learner=self.learner_1, knowledge_component=self.kc_2).value,
+                learner=self.learner_1, knowledge_component=self.kc_2
+            ).value,
             0.8
         )
         self.assertEqual(
             Score.objects.get(
-                learner=self.learner_2, knowledge_component=self.kc_1).value,
+                learner=self.learner_2, knowledge_component=self.kc_1
+            ).value,
             0.3
         )
         self.assertEqual(
             Score.objects.get(
-                learner=self.learner_2, knowledge_component=self.kc_2).value,
+                learner=self.learner_2, knowledge_component=self.kc_2
+            ).value,
             0.7
         )
 

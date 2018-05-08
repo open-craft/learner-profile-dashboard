@@ -19,6 +19,10 @@ Setting up the development server
     pip install -r requirements/base.txt
     ```
 
+1. Learner Profile Dashboard uses LDA model to analyze a learner's answers to relevant qualitative questions.
+Please provide such a model, replacing `lda.pkl` file in the root directory of the project with your model.
+(Currently, `lda.pkl` is an empty Python pickle file.) For more details, see `lpd/qualitative_data_analysis.py`.
+
 1. Create `app/local_settings.py`, and set the sensitive settings:
 
     ```python
@@ -37,6 +41,14 @@ Setting up the development server
             'PASSWORD': LPD_DB_PASSWORD,
         }
     }
+
+    # List of knowledge component IDs for which LDA model calculates probabilities.
+    # The order of the components must match exactly the order in which probabilities are returned by LDA model.
+    # E.g. If LDA model returns [0.2, 0.8] and GROUP_KCS are equal to ['kc_id_1', 'kc_id_2'],
+    # then 0.2 will be interpreted as the probability of a learner belonging to the knowledge component (group)
+    # identified by 'kc_id_1', and 0.8 will be interpreted as the probability of the learner
+    # belonging to the knowledge component (group) identified by 'kc_id_2'.
+    GROUP_KCS = ['kc_id_1_set-me', 'kc_id_2_set-me']
     ```
 
     You can use the following script to generate secret keys:

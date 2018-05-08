@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 
+import nltk
+from sklearn.externals import joblib
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
@@ -168,6 +171,18 @@ LTI_CLIENT_SECRET = os.environ.get('LTI_CLIENT_SECRET', 'SET-ME')
 # Used to automatically generate stable passwords from anonymous user IDs coming from LTI requests.
 # If compromised, attackers would be able to restore any student's password knowing their anonymous user ID from LMS.
 PASSWORD_GENERATOR_NONCE = os.environ.get('PASSWORD_GENERATOR_NONCE', 'SET-ME')
+
+# LDA model settings for the data analysis of qualitative answers - should be overwritten in local_settings.py
+GROUP_KCS = ['kc_id_1_set-me', 'kc_id_2_set-me']
+
+# Make sure you provided your LDA_MODEL file.
+LDA_MODEL = joblib.load(
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), 'lda.pkl')
+)
+
+# Make sure that 'punkt' tokenizer is downloaded
+# (it's required to preprocess data for LDA model)
+nltk.download('punkt')
 
 # pylint: disable=wildcard-import
 try:

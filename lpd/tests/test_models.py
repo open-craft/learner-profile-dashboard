@@ -12,12 +12,14 @@ from lpd.models import (
     LearnerProfileDashboard,
     LikertScaleQuestion,
     MultipleChoiceQuestion,
+    QualitativeQuestion,
     QuantitativeAnswer,
     QuantitativeQuestion,
     RankingQuestion,
     Score
 )
 from lpd.tests.factories import (
+    KnowledgeComponentFactory,
     LearnerProfileDashboardFactory,
     LikertScaleQuestionFactory,
     MultipleChoiceQuestionFactory,
@@ -113,12 +115,76 @@ class QuestionTests(TestCase):
 class QualitativeQuestionTests(TestCase):
     """QualitativeQuestion model tests."""
 
+    def setUp(self):
+        qualitative_question_1 = QualitativeQuestionFactory(
+            question_text='Is this a qualitative question?',
+            influences_group_membership=True,
+        )
+        qualitative_question_2 = QualitativeQuestionFactory(
+            question_text='Is this another qualitative question?',
+            influences_group_membership=True,
+        )
+        qualitative_question_3 = QualitativeQuestionFactory(
+            question_text='Is this another qualitative question?',
+            influences_group_membership=False,
+        )
+
+        self.learner_1 = UserFactory()
+        self.learner_2 = UserFactory()
+
+        self.learner_1_answer_to_question_1 = "Learner 1's answer to question_1"
+        self.learner_1_answer_to_question_2 = "Learner 1's answer to question_2"
+        # This answer should be ignored when updating scores
+        # because the question that it belongs to is set up to *not* influence group membership
+        learner_1_answer_to_question_3 = "Learner 1's answer to question_3"
+
+        self.learner_2_answer_to_question_1 = "Learner 2's answer to question_1"
+        # This answer should be ignored when updating scores
+        # because the question that it belongs to is set up to *not* influence group membership
+        learner_2_answer_to_question_3 = "Learner 2's answer to question_3"
+
+        self.kc_1 = KnowledgeComponentFactory(
+            kc_id='kc_id_1', kc_name='knowledge_component_1'
+        )
+        self.kc_2 = KnowledgeComponentFactory(
+            kc_id='kc_id_2', kc_name='knowledge_component_2'
+        )
+
+        QualitativeAnswerFactory(
+            learner=self.learner_1,
+            question=qualitative_question_1,
+            text=self.learner_1_answer_to_question_1,
+        )
+        QualitativeAnswerFactory(
+            learner=self.learner_1,
+            question=qualitative_question_2,
+            text=self.learner_1_answer_to_question_2,
+        )
+        QualitativeAnswerFactory(
+            learner=self.learner_1,
+            question=qualitative_question_3,
+            text=learner_1_answer_to_question_3,
+        )
+        QualitativeAnswerFactory(
+            learner=self.learner_2,
+            question=qualitative_question_1,
+            text=self.learner_2_answer_to_question_1,
+        )
+        QualitativeAnswerFactory(
+            learner=self.learner_2,
+            question=qualitative_question_3,
+            text=learner_2_answer_to_question_3,
+        )
+
     def test_str(self):
         """
         Test string representation of `QualitativeQuestion` model.
         """
-        question = QualitativeQuestionFactory(question_text='Is this a qualitative question?')
-        self.assertEqual(str(question), 'QualitativeQuestion 1: Is this a qualitative question?')
+        qualitative_question = QualitativeQuestionFactory(question_text='Is this a qualitative question?',)
+        self.assertEqual(
+            str(qualitative_question),
+            'QualitativeQuestion {id}: Is this a qualitative question?'.format(id=qualitative_question.id)
+        )
 
     def test_type(self):
         """
@@ -138,6 +204,77 @@ class QualitativeQuestionTests(TestCase):
         self.assertEqual(question.get_answer(learner), '')
         answer = QualitativeAnswerFactory(learner=learner, question=question, text='This is not an answer.')
         self.assertEqual(question.get_answer(learner), answer.text)
+
+    @patch('lpd.models.calculate_probabilities')
+    def test_update_scores(self, patched_calculate_probabilities):
+        """
+        Test the behaviour of `update_scores` class method.
+        """
+        patched_calculate_probabilities.return_value = {
+            'kc_id_1': 0.2, 'kc_id_2': 0.8
+        }
+
+        # Update scores of learner_1 and assert that the results are correct
+        QualitativeQuestion.update_scores(self.learner_1)
+
+        self.assertItemsEqual(
+            patched_calculate_probabilities.call_args[0][0],
+            [self.learner_1_answer_to_question_1, self.learner_1_answer_to_question_2]
+        )
+        self.assertEqual(Score.objects.all().count(), 2)
+        self.assertEqual(Score.objects.filter(learner=self.learner_1).count(), 2)
+        self.assertEqual(Score.objects.filter(learner=self.learner_2).count(), 0)
+        self.assertEqual(
+            Score.objects.get(
+                learner=self.learner_1, knowledge_component=self.kc_1
+            ).value,
+            0.2
+        )
+        self.assertEqual(
+            Score.objects.get(
+                learner=self.learner_1, knowledge_component=self.kc_2
+            ).value,
+            0.8
+        )
+
+        patched_calculate_probabilities.return_value = {
+            'kc_id_1': 0.3, 'kc_id_2': 0.7
+        }
+
+        # Update scores of learner_2 and assert that the results are correct
+        QualitativeQuestion.update_scores(self.learner_2)
+
+        self.assertItemsEqual(
+            patched_calculate_probabilities.call_args[0][0],
+            [self.learner_2_answer_to_question_1]
+        )
+        self.assertEqual(Score.objects.all().count(), 4)
+        self.assertEqual(Score.objects.filter(learner=self.learner_1).count(), 2)
+        self.assertEqual(Score.objects.filter(learner=self.learner_2).count(), 2)
+        self.assertEqual(
+            Score.objects.get(
+                learner=self.learner_1, knowledge_component=self.kc_1
+            ).value,
+            0.2
+        )
+        self.assertEqual(
+            Score.objects.get(
+                learner=self.learner_1, knowledge_component=self.kc_2
+            ).value,
+            0.8
+        )
+        self.assertEqual(
+            Score.objects.get(
+                learner=self.learner_2, knowledge_component=self.kc_1
+            ).value,
+            0.3
+        )
+        self.assertEqual(
+            Score.objects.get(
+                learner=self.learner_2, knowledge_component=self.kc_2
+            ).value,
+            0.7
+        )
 
 
 @ddt.ddt

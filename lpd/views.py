@@ -77,7 +77,14 @@ class LPDSubmitView(View):
     @classmethod
     def _process_qualitative_answers(cls, user, qualitative_answers):
         """
-        Create or update `QualitativeAnswer` for current learner, for each qualitative answer in request.
+        Process `qualitative_answers` from `user`.
+
+        Processing involves:
+
+         - Creating/updating `QualitativeAnswer` for `user`, for each qualitative answer in request.
+         - Creating/updating `Score`s for `user` and appropriate knowledge components,
+           using all of the `QualitativeAnswer`s submitted so far by the `user`
+           (check models.QualitativeQuestion.update_scores() for details).
         """
         for qualitative_answer in qualitative_answers:
             question_id = qualitative_answer.get('question_id')
@@ -94,6 +101,8 @@ class LPDSubmitView(View):
                     text=text
                 ),
             )
+
+        QualitativeQuestion.update_scores(learner=user)
 
     @classmethod
     def _process_quantitative_answers(cls, user, quantitative_answers):

@@ -19,9 +19,13 @@ Setting up the development server
     pip install -r requirements/base.txt
     ```
 
-1. Learner Profile Dashboard uses LDA model to analyze a learner's answers to relevant qualitative questions.
-Please provide such a model, replacing `lda.pkl` file in the root directory of the project with your model.
-(Currently, `lda.pkl` is an empty Python pickle file.) For more details, see `lpd/qualitative_data_analysis.py`.
+1. Learner Profile Dashboard uses LDA model and tfidf vectorizer
+to analyze learner's answers to relevant qualitative questions.
+Please provide such a model and a vectorizer,
+replacing `lda.pkl` and `tfidf_vectorizer.pkl` files
+in the root directory of the project with your files.
+(Currently, `lda.pkl` and `tfidf_vectorizer.pkl` are just empty Python pickle files.)
+For more details, see `lpd/qualitative_data_analysis.py`.
 
 1. Create `app/local_settings.py`, and set the sensitive settings:
 

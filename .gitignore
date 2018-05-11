@@ -1,4 +1,5 @@
 lda.pkl
+tfidf_vectorizer.pkl
 *.log
 *.py[cdo]
 *.sqlite

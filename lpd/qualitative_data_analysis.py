@@ -2,21 +2,6 @@ import re
 
 from django.conf import settings
 from nltk.tokenize import word_tokenize
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-
-# Globals
-
-EXTRA_STOP_WORDS_FOR_TFIDF = [
-    'education',
-    'experience',
-    'learn',
-    'learning',
-    'school',
-    'students',
-    'teach',
-    'working'
-]
 
 
 # Functions
@@ -56,10 +41,7 @@ def make_tfidf_matrix(document):
     """
     Compose tfidf matrix (sparse word frequency matrix) of a single document.
     """
-    tfidf = TfidfVectorizer(max_features=1000, stop_words='english')
-    stop_words = list(tfidf.get_stop_words()) + EXTRA_STOP_WORDS_FOR_TFIDF
-    tfidf.set_params(stop_words=stop_words)
-    tfidf_matrix = tfidf.fit_transform(document)
+    tfidf_matrix = settings.TFIDF_VECTORIZER.transform(document)
 
     return tfidf_matrix
 
@@ -85,7 +67,7 @@ def calculate_probabilities(answers):
     """
     document = make_document(answers)
     tfidf_matrix = make_tfidf_matrix([document])
-    weights = settings.LDA_MODEL.transform(tfidf_matrix)
+    weights = settings.LDA_MODEL.transform(tfidf_matrix)[0, :]
 
     probabilities = {
         settings.GROUP_KCS[index]: weight

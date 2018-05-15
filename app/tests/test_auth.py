@@ -22,7 +22,7 @@ class ApplicationHookManagerTests(SimpleTestCase):
         """
         Generate username and password for `user_id` and return them.
         """
-        uname = self.manager._compress_user_name(user_id)
+        uname = self.manager._compress_username(user_id)
         password = self.manager._generate_password(user_id, settings.PASSWORD_GENERATOR_NONCE)
         return uname, password
 

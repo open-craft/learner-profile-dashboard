@@ -27,12 +27,16 @@ class ApplicationHookManager(AbstractApplicationHookManager):
     LTI_KEYS = ['']
 
     @classmethod
-    def _compress_user_name(cls, username):
+    def _compress_username(cls, username):
         """
         Compress `username` and return it.
 
         Note that compression will only be applied if `username` is a normal edX hex user ID.
         Otherwise this method will return `username` unchanged.
+
+        When changing the compression scheme that this method uses
+        make sure to update `AdaptiveEngineAPIClient._decompress_username`,
+        which reverts the compression scheme used here.
         """
         try:
             binary = username.decode('hex')
@@ -76,7 +80,7 @@ class ApplicationHookManager(AbstractApplicationHookManager):
         # There are individual settings for this module, and if it's embedded into an iframe
         # it never sends username and email in any case.
         # So, since we want to track user for both iframe and non-iframe LTI blocks, username is completely ignored.
-        uname = self._compress_user_name(user_id)
+        uname = self._compress_username(user_id)
         email = email if email else user_id+'@localhost'
         try:
             User.objects.get(username=uname)

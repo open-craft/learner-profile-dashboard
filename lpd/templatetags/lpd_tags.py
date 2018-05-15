@@ -1,3 +1,7 @@
+"""
+Custom template tags for Learner Profile Dashboard
+"""
+
 from django import template
 
 register = template.Library()

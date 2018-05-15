@@ -1,8 +1,12 @@
+"""
+Views for Learner Profile Dashboard
+"""
+
 import json
 import logging
 
 from django.http import JsonResponse
-from django.views.generic import DetailView, ListView, CreateView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -31,7 +35,7 @@ log = logging.getLogger(__name__)
 
 class LPDView(TemplateView):
     """
-    Display LPD.
+    Display LPD to learner.
     """
     template_name = 'view.html'
 
@@ -213,22 +217,34 @@ class LPDSubmitView(View):
         return score
 
 
-class LearnerProfileDashboardView(object):
+class LearnerProfileDashboardViewMixin(object):
+    """
+    Mixin for CRUD views for Learner Profile Dashboard.
+    """
     model = LearnerProfileDashboard
     form_class = LearnerProfileDashboardForm
 
 
-class ShowLearnerProfileDashboardView(LearnerProfileDashboardView, DetailView):
-    template_name = 'view.html'
-
-
-class ListLearnerProfileDashboardView(LearnerProfileDashboardView, ListView):
+class ListLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, ListView):
+    """
+    View for listing Learner Profile Dashboard instances.
+    """
     template_name = 'list.html'
     paginate_by = 12
     paginate_orphans = 2
 
 
-class CreateLearnerProfileDashboardView(LearnerProfileDashboardView, CreateView):
+class ShowLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, DetailView):
+    """
+    View for showing Learner Profile Dashboard instance.
+    """
+    template_name = 'show.html'
+
+
+class CreateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, CreateView):
+    """
+    View for creating Learner Profile Dashboard instance.
+    """
     template_name = 'edit.html'
 
     '''Login required for all posts'''
@@ -237,7 +253,10 @@ class CreateLearnerProfileDashboardView(LearnerProfileDashboardView, CreateView)
         return super(CreateLearnerProfileDashboardView, self).post(request, *args, **kwargs)
 
 
-class UpdateLearnerProfileDashboardView(LearnerProfileDashboardView, UpdateView):
+class UpdateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, UpdateView):
+    """
+    View for updating Learner Profile Dashboard instance.
+    """
     template_name = 'edit.html'
 
     '''Login required for all posts'''

@@ -1,3 +1,7 @@
+"""
+View tests for Learner Profile Dashboard
+"""
+
 import json
 
 from django.contrib.auth import get_user_model
@@ -17,43 +21,63 @@ from lpd.tests.factories import (
 
 
 class UserSetupMixin(object):
-    def setUp(self):
+    """
+    Mixin for test classes that require a user.
+    """
+    def setUp(self):  # pylint: disable=missing-docstring
         self.password = 'some_password'
         self.user = get_user_model().objects.create(username='student_user')
         self.user.set_password(self.password)
         self.user.save()
 
-        self.user2 = get_user_model().objects.create(username='student_user2')
-        self.user2.set_password(self.password)
-        self.user2.save()
-
-        self.lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
-
     def login(self, username=None, password=None):
+        """
+        Perform login with `username` and `password` credentials,
+        and assert that login was successful.
+        """
         username = username if username else self.user.username
         password = password if password else self.password
         self.assertTrue(self.client.login(username=username, password=password))
 
 
-class LearnerProfileDashboardHomeViewTestCase(UserSetupMixin, TestCase):
+class LPDSetupMixin(object):
+    """
+    Mixin for test classes that require an LPD.
+    """
+    def setUp(self):  # pylint: disable=missing-docstring
+        self.lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
+
+
+class LPDViewTestCase(UserSetupMixin, TestCase):
+    """
+    Tests for LPDView.
+    """
     def setUp(self):
-        super(LearnerProfileDashboardHomeViewTestCase, self).setUp()
+        super(LPDViewTestCase, self).setUp()
         self.home_url = reverse('lpd:home')
 
     def test_anonymous(self):
+        """
+        Test that home URL redirects to admin login for unauthenticated users.
+        """
         response = self.client.get(self.home_url)
         login_url = ''.join([reverse('admin:login'), '?next=', self.home_url])
         self.assertRedirects(response, login_url)
 
     def test_lpd_view(self):
+        """
+        Test that authenticated users can access home URL.
+        """
         self.login()
         response = self.client.get(self.home_url)
         self.assertEqual(response.status_code, 200)
 
 
 # pylint: disable=too-many-instance-attributes,attribute-defined-outside-init
-class LPDSubmitViewTestCase(UserSetupMixin, TestCase):
-    """Tests for LPDSubmitView."""
+class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
+    """
+    Tests for LPDSubmitView.
+    """
 
     def setUp(self):
         super(LPDSubmitViewTestCase, self).setUp()
@@ -414,12 +438,20 @@ class LPDSubmitViewTestCase(UserSetupMixin, TestCase):
             ])
 
 
-class LearnerProfileDashboardCreateViewTestCase(UserSetupMixin, TestCase):
+class CreateLearnerProfileDashboardViewTest(UserSetupMixin, LPDSetupMixin, TestCase):
+    """
+    Tests for CreateLearnerProfileDashboardView.
+    """
+
     def setUp(self):
-        super(LearnerProfileDashboardCreateViewTestCase, self).setUp()
+        super(CreateLearnerProfileDashboardViewTest, self).setUp()
         self.add_url = reverse('lpd:add')
 
     def test_anonymous(self):
+        """
+        Test that anonymous user can access view for creating LPDs,
+        and is prompted to log in when trying to create an LPD.
+        """
         response = self.client.get(self.add_url)
         self.assertEqual(response.status_code, 200)
 
@@ -428,6 +460,9 @@ class LearnerProfileDashboardCreateViewTestCase(UserSetupMixin, TestCase):
         self.assertRedirects(response, login_url)
 
     def test_invalid(self):
+        """
+        Test that create view behaves correctly when POSTing invalid data.
+        """
         self.login()
         response = self.client.get(self.add_url)
         self.assertEqual(response.status_code, 200)
@@ -436,6 +471,9 @@ class LearnerProfileDashboardCreateViewTestCase(UserSetupMixin, TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_valid(self):
+        """
+        Test that create view behaves correctly when POSTing valid data.
+        """
         self.login()
         response = self.client.get(self.add_url)
         self.assertEqual(response.status_code, 200)
@@ -446,15 +484,22 @@ class LearnerProfileDashboardCreateViewTestCase(UserSetupMixin, TestCase):
         self.assertRedirects(response, reverse('lpd:view', kwargs=dict(pk=lpd.id)))
 
 
-class LearnerProfileDashboardUpdateViewTestCase(UserSetupMixin, TestCase):
+class UpdateLearnerProfileDashboardViewTest(UserSetupMixin, LPDSetupMixin, TestCase):
+    """
+    Tests for UpdateLearnerProfileDashboardView.
+    """
     def setUp(self):
-        super(LearnerProfileDashboardUpdateViewTestCase, self).setUp()
+        super(UpdateLearnerProfileDashboardViewTest, self).setUp()
         self.lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
         self.view_url = reverse('lpd:view', kwargs=dict(pk=self.lpd.id))
         self.edit_url = reverse('lpd:edit', kwargs=dict(pk=self.lpd.id))
         self.login_url = ''.join([reverse('admin:login'), '?next=', self.edit_url])
 
     def test_anonymous(self):
+        """
+        Test that anonymous user can access view for updating LPDs,
+        and is prompted to log in when trying to update an LPD.
+        """
         response = self.client.get(self.edit_url)
         self.assertEqual(response.status_code, 200)
 
@@ -462,6 +507,9 @@ class LearnerProfileDashboardUpdateViewTestCase(UserSetupMixin, TestCase):
         self.assertRedirects(response, self.login_url)
 
     def test_valid(self):
+        """
+        Test that update view behaves correctly when POSTing valid data.
+        """
         self.login()
         response = self.client.get(self.edit_url)
         self.assertEqual(response.status_code, 200)

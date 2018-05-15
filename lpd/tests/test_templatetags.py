@@ -1,3 +1,7 @@
+"""
+Tests for custom template tags and filters
+"""
+
 from mock import patch
 
 import ddt

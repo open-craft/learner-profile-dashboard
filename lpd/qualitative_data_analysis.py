@@ -1,3 +1,7 @@
+"""
+Logic for analyzing learner answers to qualitative questions
+"""
+
 import re
 
 from django.conf import settings

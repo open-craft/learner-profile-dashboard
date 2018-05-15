@@ -1,3 +1,7 @@
+"""
+Factories for Learner Profile Dashboard tests
+"""
+
 import random
 
 from django.contrib.auth import get_user_model

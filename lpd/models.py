@@ -1,3 +1,7 @@
+"""
+Models for Learner Profile Dashboard
+"""
+
 from django import forms
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
@@ -12,6 +16,9 @@ from lpd.qualitative_data_analysis import calculate_probabilities
 
 
 class LearnerProfileDashboard(models.Model):
+    """
+    Represents a single Learner Profile Dashboard instance.
+    """
     name = models.TextField(help_text='Name of this LPD instance')
     created_at = models.DateTimeField(auto_now_add=True, editable=False)
     modified_at = models.DateTimeField(auto_now=True, editable=False)
@@ -23,10 +30,16 @@ class LearnerProfileDashboard(models.Model):
         return unicode(self).encode('utf-8')
 
     def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific Learner Profile Dashboard instance.
+        """
         return reverse('lpd:view', kwargs=dict(pk=self.id))
 
 
 class LearnerProfileDashboardForm(forms.ModelForm):
+    """
+    Form for creating an instance of the Learner Profile Dashboard.
+    """
     class Meta:
         model = LearnerProfileDashboard
         fields = ['name']
@@ -192,6 +205,9 @@ class QuantitativeQuestion(Question):
         abstract = True
 
     def get_content_type(self):
+        """
+        Return content type of this model.
+        """
         return ContentType.objects.get_for_model(self).id
 
     @property

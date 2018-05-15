@@ -1,3 +1,7 @@
+"""
+API client for communicating with VPAL's Adaptive Engine
+"""
+
 import urlparse
 
 from django.conf import settings

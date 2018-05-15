@@ -1,3 +1,7 @@
+"""
+Tests for custom LTI integration logic
+"""
+
 import ddt
 import mock
 from django.conf import settings
@@ -10,16 +14,23 @@ from .. import ApplicationHookManager
 @ddt.ddt
 @mock.patch('app.User.objects')
 class ApplicationHookManagerTests(SimpleTestCase):
+    """Tests for ApplicationHookManager."""
     def setUp(self):
         self.manager = ApplicationHookManager()
 
     def _get_uname_and_password(self, user_id):
+        """
+        Generate username and password for `user_id` and return them.
+        """
         uname = self.manager._compress_user_name(user_id)
         password = self.manager._generate_password(user_id, settings.PASSWORD_GENERATOR_NONCE)
         return uname, password
 
     @staticmethod
     def user_does_not_exist_side_effect(username="irrelevant"):
+        """
+        Raise `DoesNotExist` error.
+        """
         raise User.DoesNotExist()
 
     @ddt.unpack
@@ -29,6 +40,9 @@ class ApplicationHookManagerTests(SimpleTestCase):
         ('abcdef1234567890', None, False),
     )
     def test_authentication_hook_user_exists(self, user_id, email, auth_result, user_objects_manager):
+        """
+        Test behavior of `authentication_hook` for existing user.
+        """
         user_objects_manager.get.return_value = User()
         request = mock.Mock()
         expected_uname, expected_password = self._get_uname_and_password(user_id)
@@ -47,6 +61,9 @@ class ApplicationHookManagerTests(SimpleTestCase):
         ('Ben Solo', None, False),
     )
     def test_authentication_hook_user_missing(self, user_id, email, auth_result, user_objects_manager):
+        """
+        Test behavior of `authentication_hook` for missing user.
+        """
         user_objects_manager.get.side_effect = self.user_does_not_exist_side_effect
         request = mock.Mock()
         expected_uname, expected_password = self._get_uname_and_password(user_id)

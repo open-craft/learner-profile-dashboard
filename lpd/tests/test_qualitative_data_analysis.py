@@ -1,3 +1,7 @@
+"""
+Tests for logic that analyzes learner answers to qualitative questions
+"""
+
 import os
 
 from ddt import ddt, data, unpack

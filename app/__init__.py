@@ -1,3 +1,7 @@
+"""
+Custom logic for LTI integration
+"""
+
 import base64
 import hashlib
 import logging
@@ -16,10 +20,20 @@ logger = logging.getLogger(__name__)
 
 
 class ApplicationHookManager(AbstractApplicationHookManager):
+    """
+    Class that performs authentication and redirection for LTI views.
+    """
+
     LTI_KEYS = ['']
 
     @classmethod
     def _compress_user_name(cls, username):
+        """
+        Compress `username` and return it.
+
+        Note that compression will only be applied if `username` is a normal edX hex user ID.
+        Otherwise this method will return `username` unchanged.
+        """
         try:
             binary = username.decode('hex')
         except TypeError:
@@ -31,6 +45,9 @@ class ApplicationHookManager(AbstractApplicationHookManager):
 
     @classmethod
     def _generate_password(cls, base, nonce):
+        """
+        Generate password for LTI user from `base` and `nonce`.
+        """
         # It is totally fine to use md5 here, as it only generates PLAIN STRING password
         # which is then fed into secure password hash.
         generator = hashlib.md5()
@@ -39,9 +56,19 @@ class ApplicationHookManager(AbstractApplicationHookManager):
         return generator.digest()
 
     def authenticated_redirect_to(self, request, lti_data):
+        """
+        Return redirect URL for authenticated LTI request.
+
+        This method is abstract in the parent class, so we need to implement it here.
+        """
         return reverse(settings.LTI_HOME_PAGE)
 
     def authentication_hook(self, request, user_id=None, username=None, email=None, extra_params=None):
+        """
+        Hook to authenticate user from data available in LTI request.
+
+        This method is abstract in the parent class, so we need to implement it here.
+        """
         # Automatically generate password from user_id.
         password = self._generate_password(user_id, settings.PASSWORD_GENERATOR_NONCE)
 

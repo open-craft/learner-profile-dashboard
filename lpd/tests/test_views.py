@@ -154,12 +154,18 @@ class LPDSubmitViewTestCase(UserSetupMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(message, 'Learner answers updated successfully.')
 
-    def test_post_process_qualitative_answers(self):
+    # pylint: disable=too-many-locals
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers')
+    @patch('lpd.models.calculate_probabilities')
+    def test_post_process_qualitative_answers(
+            self, patched_calculate_probabilities, patched_pqa):
         """
         Test that `post` correctly processes qualitative answers.
         """
         question1 = QualitativeQuestionFactory(id=1)
         question2 = QualitativeQuestionFactory(id=2)
+        knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc_id_1')
+        knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc_id_2')
         qualitative_answers = [
             {
                 'question_id': 1,
@@ -171,20 +177,45 @@ class LPDSubmitViewTestCase(UserSetupMixin, TestCase):
             }
         ]
         self.data['qualitative_answers'] = json.dumps(qualitative_answers)
-        with patch('lpd.views.LPDSubmitView._process_quantitative_answers'):
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            self.assertEqual(response.status_code, 200)
 
-            qualitative_answers = QualitativeAnswer.objects.all()
-            self.assertEqual(qualitative_answers.count(), 2)
+        group_probabilities = {
+            knowledge_component1.kc_id: 0.1,
+            knowledge_component2.kc_id: 0.9
+        }
+        expected_scores = {
+            kc_id: 1.0 - value
+            for kc_id, value in group_probabilities.items()
+        }
+        patched_calculate_probabilities.return_value = group_probabilities
 
-            answer1 = qualitative_answers.get(question=question1)
-            self.assertEqual(answer1.learner, self.user)
-            self.assertEqual(answer1.text, 'This is a very clever answer.')
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
 
-            answer2 = qualitative_answers.get(question=question2)
-            self.assertEqual(answer2.learner, self.user)
-            self.assertEqual(answer2.text, 'This is not a very clever answer, but an answer nonetheless.')
+        qualitative_answers = QualitativeAnswer.objects.all()
+        self.assertEqual(qualitative_answers.count(), 2)
+
+        answer1 = qualitative_answers.get(question=question1)
+        self.assertEqual(answer1.learner, self.user)
+        self.assertEqual(answer1.text, 'This is a very clever answer.')
+
+        answer2 = qualitative_answers.get(question=question2)
+        self.assertEqual(answer2.learner, self.user)
+        self.assertEqual(answer2.text, 'This is not a very clever answer, but an answer nonetheless.')
+
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 2)
+
+        score1 = scores.get(knowledge_component=knowledge_component1)
+        self.assertEqual(score1.learner, self.user)
+        self.assertAlmostEqual(
+            score1.value, expected_scores[knowledge_component1.kc_id]
+        )
+
+        score2 = scores.get(knowledge_component=knowledge_component2)
+        self.assertEqual(score2.learner, self.user)
+        self.assertAlmostEqual(
+            score2.value, expected_scores[knowledge_component2.kc_id]
+        )
 
     def test_post_quant_answer_not_meaningful(self):
         """

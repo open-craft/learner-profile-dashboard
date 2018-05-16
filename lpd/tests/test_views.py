@@ -4,11 +4,11 @@ View tests for Learner Profile Dashboard
 
 import json
 
-from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from django.db import IntegrityError
 from django.test import TestCase
 from mock import call, MagicMock, patch
+from requests import ConnectionError
 
 from lpd.constants import QuestionTypes
 from lpd.models import AnswerOption, LearnerProfileDashboard, QualitativeAnswer, QuantitativeAnswer, Score
@@ -18,26 +18,7 @@ from lpd.tests.factories import (
     QualitativeQuestionFactory,
     RankingQuestionFactory,
 )
-
-
-class UserSetupMixin(object):
-    """
-    Mixin for test classes that require a user.
-    """
-    def setUp(self):  # pylint: disable=missing-docstring
-        self.password = 'some_password'
-        self.user = get_user_model().objects.create(username='student_user')
-        self.user.set_password(self.password)
-        self.user.save()
-
-    def login(self, username=None, password=None):
-        """
-        Perform login with `username` and `password` credentials,
-        and assert that login was successful.
-        """
-        username = username if username else self.user.username
-        password = password if password else self.password
-        self.assertTrue(self.client.login(username=username, password=password))
+from lpd.tests.mixins import UserSetupMixin
 
 
 class LPDViewTests(UserSetupMixin, TestCase):
@@ -192,6 +173,21 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         message = json.loads(response.content)['message']
         self.assertEqual(response.status_code, 200)
         self.assertEqual(message, 'Learner answers updated successfully.')
+
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers')
+    @patch('lpd.views.LPDSubmitView._process_qualitative_answers')
+    def test_post_valid_data_connection_error(
+            self, patched_process_qual_answers, patched_process_quant_answers, patched_send_learner_data
+    ):
+        """
+        Test that `post` method returns appropriate response if processing of answer data is successful.
+        """
+        patched_send_learner_data.side_effect = ConnectionError
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        message = json.loads(response.content)['message']
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(message, 'Could not transmit scores to adaptive engine.')
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))

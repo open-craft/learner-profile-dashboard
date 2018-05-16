@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 from django.db import IntegrityError
 from django.test import TestCase
-from mock import call, patch
+from mock import call, MagicMock, patch
 
 from lpd.constants import QuestionTypes
 from lpd.models import AnswerOption, LearnerProfileDashboard, QualitativeAnswer, QuantitativeAnswer, Score
@@ -40,20 +40,12 @@ class UserSetupMixin(object):
         self.assertTrue(self.client.login(username=username, password=password))
 
 
-class LPDSetupMixin(object):
-    """
-    Mixin for test classes that require an LPD.
-    """
-    def setUp(self):  # pylint: disable=missing-docstring
-        self.lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
-
-
-class LPDViewTestCase(UserSetupMixin, TestCase):
+class LPDViewTests(UserSetupMixin, TestCase):
     """
     Tests for LPDView.
     """
     def setUp(self):
-        super(LPDViewTestCase, self).setUp()
+        super(LPDViewTests, self).setUp()
         self.home_url = reverse('lpd:home')
 
     def test_anonymous(self):
@@ -74,13 +66,13 @@ class LPDViewTestCase(UserSetupMixin, TestCase):
 
 
 # pylint: disable=too-many-instance-attributes,attribute-defined-outside-init
-class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
+class LPDSubmitViewTests(UserSetupMixin, TestCase):
     """
     Tests for LPDSubmitView.
     """
 
     def setUp(self):
-        super(LPDSubmitViewTestCase, self).setUp()
+        super(LPDSubmitViewTests, self).setUp()
         self.login()
         self.data = {'qualitative_answers': json.dumps([]), 'quantitative_answers': json.dumps([])}
 
@@ -126,6 +118,17 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
             allows_custom_input=False,
         )
 
+    def _assert_qualitative_answer_data(
+            self, qualitative_answers, question, expected_text
+    ):
+        """
+        Assert that quantitative answer exists for `answer_option` and `self.user`,
+        and that it has `expected_value` and `expected_custom_input`.
+        """
+        answer = qualitative_answers.get(question=question)
+        self.assertEqual(answer.learner, self.user)
+        self.assertEqual(answer.text, expected_text)
+
     def _assert_quantitative_answer_data(
             self, quantitative_answers, answer_option, expected_value, expected_custom_input
     ):
@@ -138,14 +141,23 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
         self.assertEqual(answer.value, expected_value)
         self.assertEqual(answer.custom_input, expected_custom_input)
 
-    def _assert_score_data(self, scores, knowledge_component, expected_value):
+    def _assert_score_data_equal(self, scores, knowledge_component, expected_value):
         """
         Assert that score exists for `knowledge_component` and `self.user`,
-        and that it has `expected_value`.
+        and that its value exactly matches `expected_value`.
         """
         score = scores.get(knowledge_component=knowledge_component)
         self.assertEqual(score.learner, self.user)
         self.assertEqual(score.value, expected_value)
+
+    def _assert_score_data_almost_equal(self, scores, knowledge_component, expected_value):
+        """
+        Assert that score exists for `knowledge_component` and `self.user`,
+        and that its value roughly matches `expected_value`.
+        """
+        score = scores.get(knowledge_component=knowledge_component)
+        self.assertEqual(score.learner, self.user)
+        self.assertAlmostEqual(score.value, expected_value)
 
     def test_post_invalid_data(self):
         """
@@ -167,22 +179,24 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not update learner answers.')
 
-    def test_post_valid_data(self):
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers')
+    @patch('lpd.views.LPDSubmitView._process_qualitative_answers')
+    def test_post_valid_data(
+            self, patched_process_qual_answers, patched_process_quant_answers, patched_send_learner_data
+    ):
         """
         Test that `post` method returns appropriate response if processing of answer data is successful.
         """
-        with patch('lpd.views.LPDSubmitView._process_quantitative_answers'), \
-                patch('lpd.views.LPDSubmitView._process_qualitative_answers'):
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            message = json.loads(response.content)['message']
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(message, 'Learner answers updated successfully.')
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        message = json.loads(response.content)['message']
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(message, 'Learner answers updated successfully.')
 
-    # pylint: disable=too-many-locals
-    @patch('lpd.views.LPDSubmitView._process_quantitative_answers')
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))
     @patch('lpd.models.calculate_probabilities')
-    def test_post_process_qualitative_answers(
-            self, patched_calculate_probabilities, patched_pqa):
+    def test_post_process_qualitative_answers(self, patched_calculate_probabilities, patched_send_learner_data):
         """
         Test that `post` correctly processes qualitative answers.
         """
@@ -190,6 +204,7 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
         question2 = QualitativeQuestionFactory(id=2)
         knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc_id_1')
         knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc_id_2')
+
         qualitative_answers = [
             {
                 'question_id': 1,
@@ -204,7 +219,7 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
 
         group_probabilities = {
             knowledge_component1.kc_id: 0.1,
-            knowledge_component2.kc_id: 0.9
+            knowledge_component2.kc_id: 0.9,
         }
         expected_scores = {
             kc_id: 1.0 - value
@@ -218,35 +233,31 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
         qualitative_answers = QualitativeAnswer.objects.all()
         self.assertEqual(qualitative_answers.count(), 2)
 
-        answer1 = qualitative_answers.get(question=question1)
-        self.assertEqual(answer1.learner, self.user)
-        self.assertEqual(answer1.text, 'This is a very clever answer.')
-
-        answer2 = qualitative_answers.get(question=question2)
-        self.assertEqual(answer2.learner, self.user)
-        self.assertEqual(answer2.text, 'This is not a very clever answer, but an answer nonetheless.')
-
         scores = Score.objects.all()
         self.assertEqual(scores.count(), 2)
 
-        score1 = scores.get(knowledge_component=knowledge_component1)
-        self.assertEqual(score1.learner, self.user)
-        self.assertAlmostEqual(
-            score1.value, expected_scores[knowledge_component1.kc_id]
+        # Check answers individually
+        self._assert_qualitative_answer_data(
+            qualitative_answers, question1, 'This is a very clever answer.'
+        )
+        self._assert_qualitative_answer_data(
+            qualitative_answers, question2, 'This is not a very clever answer, but an answer nonetheless.'
         )
 
-        score2 = scores.get(knowledge_component=knowledge_component2)
-        self.assertEqual(score2.learner, self.user)
-        self.assertAlmostEqual(
-            score2.value, expected_scores[knowledge_component2.kc_id]
-        )
+        # Check scores individually
+        self._assert_score_data_almost_equal(scores, knowledge_component1, expected_scores[knowledge_component1.kc_id])
+        self._assert_score_data_almost_equal(scores, knowledge_component2, expected_scores[knowledge_component2.kc_id])
 
-    def test_post_quant_answer_not_meaningful(self):
+        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
+        patched_send_learner_data.assert_called_once_with(self.user, list(scores))
+
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
+    def test_post_quant_answer_not_meaningful(self, patched_send_learner_data):
         """
-        Test that `post` correctly processes qualitative answer whose value is not meaningful.
+        Test that `post` correctly processes quantitative answer whose value is not meaningful.
 
-        When dealing with values that are not meaningful,
-        no answers or scores should be created.
+        When dealing with values that are not meaningful, no answers or scores should be created.
 
         The only question type for which `post` might receive a value that is not meaningful (i.e., `None`)
         is `QuestionTypes.LIKERT`. See `QuantitativeQuestion.get_value` for details.
@@ -260,19 +271,24 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
             },
         ]
         self.data['quantitative_answers'] = json.dumps(quantitative_answers)
-        with patch('lpd.views.LPDSubmitView._process_qualitative_answers'):
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            self.assertEqual(response.status_code, 200)
 
-            quantitative_answers = QuantitativeAnswer.objects.all()
-            self.assertEqual(quantitative_answers.count(), 0)
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
 
-            scores = Score.objects.all()
-            self.assertEqual(scores.count(), 0)
+        quantitative_answers = QuantitativeAnswer.objects.all()
+        self.assertEqual(quantitative_answers.count(), 0)
 
-    def test_post_quant_answers_meaningful(self):
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 0)
+
+        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
+        patched_send_learner_data.assert_called_once_with(self.user, [])
+
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
+    def test_post_quant_answers_meaningful(self, patched_send_learner_data):
         """
-        Test that `post` correctly processes qualitative answers whose values are meaningful.
+        Test that `post` correctly processes quantitative answers whose values are meaningful.
 
         When dealing with values that are meaningful
         and corresponding answer options are configured to influence recommendations,
@@ -305,29 +321,34 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
             },
         ]
         self.data['quantitative_answers'] = json.dumps(quantitative_answers)
-        with patch('lpd.views.LPDSubmitView._process_qualitative_answers'):
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            self.assertEqual(response.status_code, 200)
 
-            quantitative_answers = QuantitativeAnswer.objects.all()
-            self.assertEqual(quantitative_answers.count(), 3)
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
 
-            scores = Score.objects.all()
-            self.assertEqual(scores.count(), 3)
+        quantitative_answers = QuantitativeAnswer.objects.all()
+        self.assertEqual(quantitative_answers.count(), 3)
 
-            # Check answers individually
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option1, 1, '')
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 3)
 
-            # Check scores individually
-            self._assert_score_data(scores, self.knowledge_component1, 0)
-            self._assert_score_data(scores, self.knowledge_component2, 1)
-            self._assert_score_data(scores, self.knowledge_component3, 0.8)
+        # Check answers individually
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option1, 1, '')
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
 
-    def test_post_quant_answers_no_influence(self):
+        # Check scores individually
+        self._assert_score_data_equal(scores, self.knowledge_component1, 0)
+        self._assert_score_data_equal(scores, self.knowledge_component2, 1)
+        self._assert_score_data_equal(scores, self.knowledge_component3, 0.8)
+
+        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
+        patched_send_learner_data.assert_called_once_with(self.user, list(scores))
+
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
+    def test_post_quant_answers_no_influence(self, patched_send_learner_data):
         """
-        Test that `post` correctly processes qualitative answers belonging to answer options
+        Test that `post` correctly processes quantitative answers belonging to answer options
         that are not configured to influence recommendations.
 
         When dealing with values that are meaningful
@@ -360,24 +381,30 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
             },
         ]
         self.data['quantitative_answers'] = json.dumps(quantitative_answers)
-        with patch('lpd.views.LPDSubmitView._process_qualitative_answers'):
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            self.assertEqual(response.status_code, 200)
 
-            quantitative_answers = QuantitativeAnswer.objects.all()
-            self.assertEqual(quantitative_answers.count(), 3)
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
 
-            scores = Score.objects.all()
-            self.assertEqual(scores.count(), 0)
+        quantitative_answers = QuantitativeAnswer.objects.all()
+        self.assertEqual(quantitative_answers.count(), 3)
 
-            # Check answers individually
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option1, 1, None)
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 0)
 
-    def test_post_quant_answers_no_kc(self):
+        # Check answers individually
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option1, 1, None)
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
+
+        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
+        patched_send_learner_data.assert_called_once_with(self.user, [])
+
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.log.error')
+    @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
+    def test_post_quant_answers_no_kc(self, patched_error, patched_send_learner_data):
         """
-        Test that `post` correctly processes qualitative answers belonging to answer options
+        Test that `post` correctly processes quantitative answers belonging to answer options
         that are configured to influence recommendations, but aren't linked to a knowledge component.
 
         Note that this is an edge case that should not come up in practice:
@@ -414,37 +441,39 @@ class LPDSubmitViewTestCase(UserSetupMixin, LPDSetupMixin, TestCase):
             },
         ]
         self.data['quantitative_answers'] = json.dumps(quantitative_answers)
-        with patch('lpd.views.LPDSubmitView._process_qualitative_answers'), \
-                patch('lpd.views.log.error') as patched_error:
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            self.assertEqual(response.status_code, 200)
 
-            quantitative_answers = QuantitativeAnswer.objects.all()
-            self.assertEqual(quantitative_answers.count(), 3)
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
 
-            scores = Score.objects.all()
-            self.assertEqual(scores.count(), 0)
+        quantitative_answers = QuantitativeAnswer.objects.all()
+        self.assertEqual(quantitative_answers.count(), 3)
 
-            # Check answers individually
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option1, 1, None)
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
-            self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 0)
 
-            # Make sure that log.error was called to report the situation
-            patched_error.assert_has_calls([
-                call('Could not create score because %s is not linked to a knowledge component.', self.answer_option1),
-                call('Could not create score because %s is not linked to a knowledge component.', self.answer_option2),
-                call('Could not create score because %s is not linked to a knowledge component.', self.answer_option3),
-            ])
+        # Check answers individually
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option1, 1, None)
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
+        self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
+
+        # Make sure that log.error was called to report the situation
+        patched_error.assert_has_calls([
+            call('Could not create score because %s is not linked to a knowledge component.', self.answer_option1),
+            call('Could not create score because %s is not linked to a knowledge component.', self.answer_option2),
+            call('Could not create score because %s is not linked to a knowledge component.', self.answer_option3),
+        ])
+
+        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
+        patched_send_learner_data.assert_called_once_with(self.user, [])
 
 
-class CreateLearnerProfileDashboardViewTest(UserSetupMixin, LPDSetupMixin, TestCase):
+class CreateLearnerProfileDashboardViewTests(UserSetupMixin, TestCase):
     """
     Tests for CreateLearnerProfileDashboardView.
     """
 
     def setUp(self):
-        super(CreateLearnerProfileDashboardViewTest, self).setUp()
+        super(CreateLearnerProfileDashboardViewTests, self).setUp()
         self.add_url = reverse('lpd:add')
 
     def test_anonymous(self):
@@ -484,12 +513,12 @@ class CreateLearnerProfileDashboardViewTest(UserSetupMixin, LPDSetupMixin, TestC
         self.assertRedirects(response, reverse('lpd:view', kwargs=dict(pk=lpd.id)))
 
 
-class UpdateLearnerProfileDashboardViewTest(UserSetupMixin, LPDSetupMixin, TestCase):
+class UpdateLearnerProfileDashboardViewTests(UserSetupMixin, TestCase):
     """
     Tests for UpdateLearnerProfileDashboardView.
     """
     def setUp(self):
-        super(UpdateLearnerProfileDashboardViewTest, self).setUp()
+        super(UpdateLearnerProfileDashboardViewTests, self).setUp()
         self.lpd = LearnerProfileDashboard.objects.create(name='Test LPD')
         self.view_url = reverse('lpd:view', kwargs=dict(pk=self.lpd.id))
         self.edit_url = reverse('lpd:edit', kwargs=dict(pk=self.lpd.id))

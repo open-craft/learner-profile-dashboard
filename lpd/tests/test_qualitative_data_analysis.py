@@ -12,7 +12,7 @@ from lpd import qualitative_data_analysis as qda
 
 
 @ddt
-class QualtitiveDataAnalysisTestCase(TestCase):
+class QualtitiveDataAnalysisTests(TestCase):
     """Tests for qualitative data analysis."""
 
     @data(

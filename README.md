@@ -53,6 +53,13 @@ For more details, see `lpd/qualitative_data_analysis.py`.
     # identified by 'kc_id_1', and 0.8 will be interpreted as the probability of the learner
     # belonging to the knowledge component (group) identified by 'kc_id_2'.
     GROUP_KCS = ['kc_id_1_set-me', 'kc_id_2_set-me']
+
+    # Domain of the Open edX instance that this LPD deployment is connected to
+    OPENEDX_INSTANCE_DOMAIN = 'development.domain.com'
+    # URL of the Adaptive Engine deployment that this LPD deployment is connected to
+    ADAPTIVE_ENGINE_URL = 'http://localhost'
+    # Auth token for requests to Adaptive Engine deployment that this LPD deployment is connected to
+    ADAPTIVE_ENGINE_TOKEN = 'development-token'
     ```
 
     You can use the following script to generate secret keys:

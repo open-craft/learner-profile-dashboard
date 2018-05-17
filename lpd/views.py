@@ -1,13 +1,19 @@
+"""
+Views for Learner Profile Dashboard
+"""
+
 import json
 import logging
 
 from django.http import JsonResponse
-from django.views.generic import DetailView, ListView, CreateView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils.decorators import method_decorator
+from requests import ConnectionError
 
+from lpd.client import AdaptiveEngineAPIClient
 from lpd.models import (
     AnswerOption,
     LearnerProfileDashboard,
@@ -29,7 +35,7 @@ log = logging.getLogger(__name__)
 
 class LPDView(TemplateView):
     """
-    Display LPD.
+    Display LPD to learner.
     """
     template_name = 'view.html'
 
@@ -53,7 +59,7 @@ class LPDSubmitView(View):
 
     def post(self, request, *args, **kwargs):
         """
-        Persist learner answers to LPD questions.
+        Persist learner answers to LPD questions, and send up-to-date learner data to adaptive engine.
         """
         user = User.objects.get(username=request.user.username)
         qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
@@ -63,28 +69,39 @@ class LPDSubmitView(View):
         log.info('Request data (qualitative answers): %s', qualitative_answers)
         log.info('Request data (quantitative answers): %s', quantitative_answers)
 
+        # Process answer data
         try:
-            self._process_qualitative_answers(user, qualitative_answers)
-            self._process_quantitative_answers(user, quantitative_answers)
+            group_scores = self._process_qualitative_answers(user, qualitative_answers)
+            answer_scores = self._process_quantitative_answers(user, quantitative_answers)
         except Exception as e:  # pylint: disable=broad-except
             log.error('The following exception occurred when trying to process answers for user %s: %s', user, e)
-            response = JsonResponse({'message': 'Could not update learner answers.'}, status=500)
+            return JsonResponse({'message': 'Could not update learner answers.'}, status=500)
         else:
             log.info('Answers successfully updated for user %s', user)
-            response = JsonResponse({'message': 'Learner answers updated successfully.'})
-        return response
+
+        # Send learner data to adaptive engine
+        try:
+            AdaptiveEngineAPIClient.send_learner_data(user, group_scores+answer_scores)
+        except ConnectionError as e:
+            log.error('The following exception occurred when trying to transmit scores for user %s: %s', user, e)
+            return JsonResponse({'message': 'Could not transmit scores to adaptive engine.'}, status=500)
+        else:
+            log.info('Scores successfully transmitted to adaptive engine for user %s', user)
+            return JsonResponse({'message': 'Learner answers updated successfully.'})
 
     @classmethod
     def _process_qualitative_answers(cls, user, qualitative_answers):
         """
         Process `qualitative_answers` from `user`.
 
-        Processing involves:
+        This involves:
 
-         - Creating/updating `QualitativeAnswer` for `user`, for each qualitative answer in request.
-         - Creating/updating `Score`s for `user` and appropriate knowledge components,
+         - Creating/updating a `QualitativeAnswer` for `user`, for each qualitative answer in request.
+         - Creating/updating `Score` records for `user` and appropriate knowledge components,
            using all of the `QualitativeAnswer`s submitted so far by the `user`
            (check models.QualitativeQuestion.update_scores() for details).
+
+        Return up-to-date `Score` records for further processing.
         """
         for qualitative_answer in qualitative_answers:
             question_id = qualitative_answer.get('question_id')
@@ -102,7 +119,7 @@ class LPDSubmitView(View):
                 ),
             )
 
-        QualitativeQuestion.update_scores(learner=user)
+        return QualitativeQuestion.update_scores(learner=user)
 
     @classmethod
     def _process_quantitative_answers(cls, user, quantitative_answers):
@@ -111,8 +128,8 @@ class LPDSubmitView(View):
 
         For each quantitative answer from request, this involves:
 
-        - Creating/updating a `QuantitativeAnswer` for `user` and appropriate answer option
-        - Creating/updating a `Score` for `user` and appropriate knowledge component
+        - Creating/updating a `QuantitativeAnswer` for `user` and appropriate answer option.
+        - Creating/updating a `Score` for `user` and appropriate knowledge component.
 
         Notes:
 
@@ -122,7 +139,10 @@ class LPDSubmitView(View):
         - The second step only happens if a given quantitative answer is associated with an answer option that
           - is configured to influence recommendations.
           - is linked to a knowledge component.
+
+        Return up-to-date `Score` records for further processing.
         """
+        scores = []
         for quantitative_answer in quantitative_answers:
             # Extract relevant information about answer
             question_type = quantitative_answer.get('question_type')
@@ -142,7 +162,12 @@ class LPDSubmitView(View):
             # Create or update answer for answer option
             cls._update_or_create_answer(user, answer_option, value, custom_input)
             # Create or update score for adaptive engine
-            cls._update_or_create_score(user, question_type, answer_option, value)
+            score = cls._update_or_create_score(user, question_type, answer_option, value)
+
+            if score is not None:
+                scores.append(score)
+
+        return scores
 
     @classmethod
     def _update_or_create_answer(cls, user, answer_option, value, custom_input):
@@ -171,41 +196,55 @@ class LPDSubmitView(View):
     @classmethod
     def _update_or_create_score(cls, user, question_type, answer_option, value):
         """
-        Create or update `Score` for `user` and knowledge component associated with `answer_option`.
+        Create or update `Score` for `user` and knowledge component associated with `answer_option`, and return it.
 
         Note that this method should only be called
         if `value` is meaningful (i.e., if it is not `None`).
         """
+        score = None
         if answer_option.influences_recommendations:
             knowledge_component = answer_option.knowledge_component
             if knowledge_component:
                 score_value = QuantitativeQuestion.get_score(question_type, value)
                 score_data = dict(value=score_value)
-                Score.objects.update_or_create(
+                score, _ = Score.objects.update_or_create(
                     knowledge_component=knowledge_component,
                     learner=user,
                     defaults=score_data
                 )
             else:
                 log.error('Could not create score because %s is not linked to a knowledge component.', answer_option)
+        return score
 
 
-class LearnerProfileDashboardView(object):
+class LearnerProfileDashboardViewMixin(object):
+    """
+    Mixin for CRUD views for Learner Profile Dashboard.
+    """
     model = LearnerProfileDashboard
     form_class = LearnerProfileDashboardForm
 
 
-class ShowLearnerProfileDashboardView(LearnerProfileDashboardView, DetailView):
-    template_name = 'view.html'
-
-
-class ListLearnerProfileDashboardView(LearnerProfileDashboardView, ListView):
+class ListLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, ListView):
+    """
+    View for listing Learner Profile Dashboard instances.
+    """
     template_name = 'list.html'
     paginate_by = 12
     paginate_orphans = 2
 
 
-class CreateLearnerProfileDashboardView(LearnerProfileDashboardView, CreateView):
+class ShowLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, DetailView):
+    """
+    View for showing Learner Profile Dashboard instance.
+    """
+    template_name = 'show.html'
+
+
+class CreateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, CreateView):
+    """
+    View for creating Learner Profile Dashboard instance.
+    """
     template_name = 'edit.html'
 
     '''Login required for all posts'''
@@ -214,7 +253,10 @@ class CreateLearnerProfileDashboardView(LearnerProfileDashboardView, CreateView)
         return super(CreateLearnerProfileDashboardView, self).post(request, *args, **kwargs)
 
 
-class UpdateLearnerProfileDashboardView(LearnerProfileDashboardView, UpdateView):
+class UpdateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, UpdateView):
+    """
+    View for updating Learner Profile Dashboard instance.
+    """
     template_name = 'edit.html'
 
     '''Login required for all posts'''

@@ -1,4 +1,6 @@
-# Constants for Learner Profile Dashboard
+"""
+Constants for Learner Profile Dashboard
+"""
 
 
 # Exceptions

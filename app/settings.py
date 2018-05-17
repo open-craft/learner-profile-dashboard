@@ -190,6 +190,15 @@ TFIDF_VECTORIZER = joblib.load(
 # (it's required to preprocess data for LDA model)
 nltk.download('punkt')
 
+# Adaptive Engine settings
+
+# Domain of the Open edX instance that this LPD deployment is connected to
+OPENEDX_INSTANCE_DOMAIN = os.environ.get('OPENEDX_INSTANCE_DOMAIN', 'SET-ME')
+# URL of the Adaptive Engine deployment that this LPD deployment is connected to
+ADAPTIVE_ENGINE_URL = os.environ.get('ADAPTIVE_ENGINE_URL', 'SET-ME')
+# Auth token for requests to Adaptive Engine deployment that this LPD deployment is connected to
+ADAPTIVE_ENGINE_TOKEN = os.environ.get('ADAPTIVE_ENGINE_TOKEN', 'SET-ME')
+
 # pylint: disable=wildcard-import
 try:
     from .local_settings import *  # NOQA

@@ -95,7 +95,6 @@ disable=
     too-many-ancestors,
     protected-access,
     unused-argument,
-    missing-docstring
 
 [SPELLING]
 

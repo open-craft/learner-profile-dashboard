@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+Entry point for running Django management commands
+"""
+
 import os
 import sys
 

@@ -1,3 +1,7 @@
+"""
+Tests for logic that analyzes learner answers to qualitative questions
+"""
+
 import os
 
 from ddt import ddt, data, unpack
@@ -8,7 +12,7 @@ from lpd import qualitative_data_analysis as qda
 
 
 @ddt
-class QualtitiveDataAnalysisTestCase(TestCase):
+class QualtitiveDataAnalysisTests(TestCase):
     """Tests for qualitative data analysis."""
 
     @data(

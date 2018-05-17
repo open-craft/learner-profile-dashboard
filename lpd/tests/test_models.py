@@ -1,3 +1,7 @@
+"""
+Model tests for Learner Profile Dashboard
+"""
+
 import logging
 import random
 

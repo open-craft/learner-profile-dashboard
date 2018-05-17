@@ -1,3 +1,7 @@
+"""
+Tests for custom template tags and filters
+"""
+
 from mock import patch
 
 import ddt
@@ -12,7 +16,7 @@ from lpd.tests.test_models import QUANTITATIVE_QUESTION_FACTORIES
 
 # Classes
 
-class TemplateTagsTest(TestCase):
+class TemplateTagsTests(TestCase):
     """Tests for custom template tags."""
 
     def setUp(self):
@@ -47,7 +51,7 @@ class TemplateTagsTest(TestCase):
 
 
 @ddt.ddt
-class TemplateFilterTest(TestCase):
+class TemplateFilterTests(TestCase):
     """Tests for custom template filters."""
 
     @ddt.data(

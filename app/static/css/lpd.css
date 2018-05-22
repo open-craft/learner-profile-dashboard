@@ -1,1 +1,74 @@
+body {
+    padding: 1.2rem;
+    font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 1rem;
+    font-weight: normal;
+    color: #313131;
+}
 
+.lpd, .likert-info {
+    margin-bottom: 1.2rem;
+}
+
+.section-title {
+    padding: 0.4rem;
+    cursor: pointer;
+}
+
+.section-title:hover {
+    background-color: #f2f2f2;
+    cursor: pointer;
+}
+
+.section-questions, .section-controls {
+    padding-left: 0.4rem;
+}
+
+.section-questions, .section-controls, .question {
+    margin-bottom: 2rem;
+}
+
+.question-number, .ranking-option > label:last-of-type, .likert-option > label:last-of-type {
+    margin-right: 1.4rem;
+}
+
+textarea.answer-text {
+    width: 60%;
+    min-height: 10rem;
+    padding: 0.8rem;
+}
+
+.question label, .ranking-option, .likert-option {
+    margin-bottom: 1rem;
+}
+
+.mc-options > label, .mr-options > label {
+    display: block;
+}
+
+.likert-info {
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.custom-input {
+    margin-left: 0.6rem;
+}
+
+.section-submit {
+    box-shadow: none;
+    border-color: #0075b4;
+    border-style: solid;
+    border-radius: 0.1875rem;
+    border-width: 1px;
+    padding: 0.625rem 1.25rem;
+    background: #0075b4;
+    font-size: 1rem;
+    text-shadow: none;
+    color: #fcfcfc;
+    cursor: pointer;
+}
+
+.section-submit:hover {
+	background-color: #065683;
+}

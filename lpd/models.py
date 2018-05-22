@@ -114,9 +114,9 @@ class Question(models.Model):
     def section_number(self):
         """
         Return string of the form 'X.Y'
-        where X represents `order` of parent section and Y represents `number` of this question.
+        where X represents 1-based `order` of parent section and Y represents `number` of this question.
         """
-        return '{section}.{number}'.format(section=self.section.order, number=self.number)
+        return '{section}.{number}'.format(section=self.section.order+1, number=self.number)
 
 
 class QualitativeQuestion(Question):

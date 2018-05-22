@@ -161,8 +161,8 @@ $(document).ready(function() {
             $questions = $sectionForm.children('.section-questions'),
             $controls = $sectionForm.children('.section-controls');
 
-        $questions.toggle();
-        $controls.toggle();
+        $questions.toggle('slow');
+        $controls.toggle('slow');
     });
 
     $('.mr-option').click(function(e) {

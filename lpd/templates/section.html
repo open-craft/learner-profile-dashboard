@@ -2,7 +2,7 @@
 
   {% csrf_token %}
 
-  <p class="section-title">{{ section.title }}</p>
+  <h2 class="section-title" title="Click to expand/collapse this section">{{ section.title }}</h2>
 
   <div class="section-questions">
     {% for profile_question in section.questions %}

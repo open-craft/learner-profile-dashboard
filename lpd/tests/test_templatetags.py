@@ -70,10 +70,10 @@ class TemplateFilterTests(TestCase):
         self.assertEqual(range, expected_range)
 
     @ddt.data(
-        ('This is not a test.', '<p>This is not a test.</p>'),
-        ('*This* is **not** a test.', '<p><em>This</em> is <strong>not</strong> a test.</p>'),
-        ('<em>This</em> is **not** a test.', '<p><em>This</em> is <strong>not</strong> a test.</p>'),
-        ('<strong>This</strong> is *not* a test.', '<p><strong>This</strong> is <em>not</em> a test.</p>'),
+        ('This is not a test.', 'This is not a test.'),
+        ('*This* is **not** a test.', '<em>This</em> is <strong>not</strong> a test.'),
+        ('<em>This</em> is **not** a test.', '<em>This</em> is <strong>not</strong> a test.'),
+        ('<strong>This</strong> is *not* a test.', '<strong>This</strong> is <em>not</em> a test.'),
     )
     @ddt.unpack
     def test_render_custom_formatting(self, string, expected_output):

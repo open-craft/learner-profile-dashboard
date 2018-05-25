@@ -158,9 +158,11 @@ $(document).ready(function() {
 
     $('.section-title').click(function(e) {
         var $sectionForm = $(this).parent('form'),
+            $intro = $sectionForm.children('.section-intro'),
             $questions = $sectionForm.children('.section-questions'),
             $controls = $sectionForm.children('.section-controls');
 
+        $intro.toggle('slow');
         $questions.toggle('slow');
         $controls.toggle('slow');
     });

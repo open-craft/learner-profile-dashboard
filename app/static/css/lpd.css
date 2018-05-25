@@ -5,7 +5,7 @@ body {
     color: #313131;
 }
 
-.lpd, .framing-text, .likert-info {
+.lpd, .question-framing, .likert-info {
     margin-bottom: 1.2rem;
 }
 
@@ -19,7 +19,12 @@ body {
     cursor: pointer;
 }
 
-#section-form > p, .section-questions, .section-controls {
+.section-intro {
+    margin-bottom: 1.6rem;
+    font-size: 0.95rem;
+}
+
+.section-intro, .section-questions, .section-controls {
     padding-left: 0.4rem;
 }
 
@@ -45,7 +50,7 @@ textarea.answer-text {
     display: block;
 }
 
-.framing-text, .likert-info {
+.question-framing, .likert-info {
     font-size: 0.9rem;
     font-style: italic;
 }

@@ -7,7 +7,7 @@
   <h2 class="section-title" title="Click to expand/collapse this section">{{ section.title }}</h2>
 
   {% if section.intro_text %}
-    {{ section.intro_text|render_custom_formatting }}
+    <p class="section-intro">{{ section.intro_text|render_custom_formatting }}</p>
   {% endif %}
 
   <div class="section-questions">

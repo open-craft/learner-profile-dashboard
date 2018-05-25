@@ -3,10 +3,12 @@
 
 <div class="question" data-question-id="{{ question.id }}" data-question-type="{{ question.type }}">
 
-  <p><span class="question-number">{{ question.section_number }}</span> {{ question.question_text|render_custom_formatting }}</p>
+  <p class="question-text">
+    <span class="question-number">{{ question.section_number }}</span> {{ question.question_text|render_custom_formatting }}
+  </p>
 
   {% if question.framing_text %}
-    <p class="framing-text">{{ question.framing_text }}</p>
+    <p class="question-framing">{{ question.framing_text }}</p>
   {% endif %}
 
   {% if question.type == 'essay' %}

@@ -2,6 +2,8 @@
 Custom template filters for Learner Profile Dashboard
 """
 
+import re
+
 from django import template
 from django.utils.safestring import mark_safe
 from markdown import markdown
@@ -24,4 +26,8 @@ def render_custom_formatting(string):
 
     Supports both Markdown and HTML formatting directives.
     """
-    return mark_safe(markdown(string))
+    # Note that markdown callable wraps results in <p> tags, which is not what we want
+    # (it breaks the LPD's layout and makes it harder to target elements from CSS).
+    # So we remove these tags before returning the formatted string:
+    formatted_string = re.sub('</?p>', '', markdown(string))
+    return mark_safe(formatted_string)

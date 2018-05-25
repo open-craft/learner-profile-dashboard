@@ -19,7 +19,7 @@ body {
     cursor: pointer;
 }
 
-.section-questions, .section-controls {
+#section-form > p, .section-questions, .section-controls {
     padding-left: 0.4rem;
 }
 

@@ -57,7 +57,15 @@ class Section(OrderedModel):
         max_length=120,
         blank=True,
         null=True,
-        help_text='Text to display above questions belonging to this section (optional).',
+        help_text='Text to display at the top of this section (optional).',
+    )
+    intro_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text=(
+            'Introductory text to display below section title '
+            'and above questions belonging to this section (optional).'
+        )
     )
 
     order_with_respect_to = 'lpd'

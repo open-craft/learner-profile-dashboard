@@ -1,8 +1,14 @@
+{% load lpd_filters %}
+
 <form id="section-form" name="{{ form.form_name }}" action="#form" method="post" enctype="multipart/form-data">
 
   {% csrf_token %}
 
   <h2 class="section-title" title="Click to expand/collapse this section">{{ section.title }}</h2>
+
+  {% if section.intro_text %}
+    {{ section.intro_text|render_custom_formatting }}
+  {% endif %}
 
   <div class="section-questions">
     {% for profile_question in section.questions %}

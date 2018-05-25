@@ -100,7 +100,15 @@ class Question(models.Model):
         help_text='Number of this question relative to parent section.'
     )
     question_text = models.TextField(
-        help_text='Text to display above answer options (if any) and input fields.',
+        help_text='Text to display above framing text, answer options (if any) and input fields.',
+    )
+    framing_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text=(
+            'Introductory text to display below question text '
+            'and above answer options and input fields belonging to this question (optional).'
+        )
     )
     notes = models.TextField(
         blank=True,

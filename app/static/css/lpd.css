@@ -5,7 +5,7 @@ body {
     color: #313131;
 }
 
-.lpd, .likert-info {
+.lpd, .framing-text, .likert-info {
     margin-bottom: 1.2rem;
 }
 
@@ -45,7 +45,7 @@ textarea.answer-text {
     display: block;
 }
 
-.likert-info {
+.framing-text, .likert-info {
     font-size: 0.9rem;
     font-style: italic;
 }

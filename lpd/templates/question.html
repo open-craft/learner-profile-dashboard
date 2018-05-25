@@ -5,6 +5,10 @@
 
   <p><span class="question-number">{{ question.section_number }}</span> {{ question.question_text|render_custom_formatting }}</p>
 
+  {% if question.framing_text %}
+    <p class="framing-text">{{ question.framing_text }}</p>
+  {% endif %}
+
   {% if question.type == 'essay' %}
     <textarea class="answer-text">{% get_answer question learner %}</textarea>
   {% endif %}

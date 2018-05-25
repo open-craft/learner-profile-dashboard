@@ -30,45 +30,11 @@ class AdaptiveEngineAPIClientTests(UserSetupMixin, TestCase):
         ADAPTIVE_ENGINE_URL='https://test-url.com',
         ADAPTIVE_ENGINE_TOKEN='test-token',
     )
-    def test_send_learner_data_user_id(self, username, expected_user_id):
+    def test_send_learner_data(self, username, expected_user_id):
         """
-        Test that `send_learner_data` behaves correctly w/r/t computing LTI user IDs
-        to send to adaptive engine.
+        Test that `send_learner_data` sends correct payload to adaptive engine.
         """
         self.user.username = username
-        self.user.save()
-
-        scores = []
-
-        expected_url = 'https://test-url.com/engine/api/mastery/learner'
-        expected_headers = {'Authorization': 'Token test-token'}
-        expected_guid = 'test.instance.com'
-        expected_payload = {
-            'learner': {
-                'lti_user_id': expected_user_id,
-                'tool_consumer_instance_guid': expected_guid
-            },
-            'masteries': {}
-        }
-
-        with patch('lpd.client.requests.post') as patched_post:
-            AdaptiveEngineAPIClient.send_learner_data(self.user, scores)
-            patched_post.assert_called_once_with(
-                expected_url, headers=expected_headers, json=expected_payload
-            )
-
-    @override_settings(
-        OPENEDX_INSTANCE_DOMAIN='test.instance.com',
-        ADAPTIVE_ENGINE_URL='https://test-url.com',
-        ADAPTIVE_ENGINE_TOKEN='test-token',
-    )
-    def test_send_learner_data_masteries(self):
-        """
-        Test that `send_learner_data` behaves correctly w/r/t computing 'masteries' vector
-        to send to adaptive engine.
-        """
-        expected_user_id = u'student'
-        self.user.username = expected_user_id
         self.user.save()
 
         knowledge_component1 = KnowledgeComponentFactory(kc_id='kc_id_1')
@@ -87,21 +53,33 @@ class AdaptiveEngineAPIClientTests(UserSetupMixin, TestCase):
 
         scores = [score1, score2]
 
-        expected_url = 'https://test-url.com/engine/api/mastery/learner'
+        expected_url = 'https://test-url.com/engine/api/mastery/bulk_update'
         expected_headers = {'Authorization': 'Token test-token'}
         expected_guid = 'test.instance.com'
-        expected_payload = {
-            'learner': {
-                'lti_user_id': expected_user_id,
-                'tool_consumer_instance_guid': expected_guid
+        expected_payload = [
+            {
+                'knowledge_component': {
+                    'kc_id': knowledge_component1.kc_id,
+                },
+                'learner': {
+                    'tool_consumer_instance_guid': expected_guid,
+                    'user_id': expected_user_id,
+                },
+                'value': 0.23
             },
-            'masteries': {
-                knowledge_component1.kc_id: 0.23,
-                knowledge_component2.kc_id: 0.42,
-            }
-        }
+            {
+                'knowledge_component': {
+                    'kc_id': knowledge_component2.kc_id
+                },
+                'learner': {
+                    'tool_consumer_instance_guid': expected_guid,
+                    'user_id': expected_user_id,
+                },
+                'value': 0.42
+            },
+        ]
 
-        with patch('lpd.client.requests.post') as patched_post:
+        with patch('lpd.client.requests.put') as patched_post:
             AdaptiveEngineAPIClient.send_learner_data(self.user, scores)
             patched_post.assert_called_once_with(
                 expected_url, headers=expected_headers, json=expected_payload

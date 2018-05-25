@@ -42,32 +42,48 @@ class AdaptiveEngineAPIClient(object):
         """
         Sends POST request with up-to-date learner data for `user` to adaptive engine.
 
-        Endpoint: /engine/api/mastery/learner
+        Endpoint: /engine/api/mastery/bulk_update
 
         Example payload:
 
-        {
-            'learner': {
-                'lti_user_id': <lti_user_id>,
-                'tool_consumer_instance_guid': <instance_id>
+        [
+            {
+                'knowledge_component': {
+                    'kc_id': '<kc_id_1>'
+                },
+                'learner': {
+                    'tool_consumer_instance_guid': settings.OPENEDX_INSTANCE_DOMAIN,
+                    'user_id': '<lti_user_id>'
+                },
+                'value': 0.1
             },
-            'masteries': {
-                '<kc_id_1>': <value>,
-                '<kc_id_2>': <value>
-            }
-        }
+            {
+                'knowledge_component': {
+                    'kc_id': '<kc_id_2>'
+                },
+                'learner': {
+                    'tool_consumer_instance_guid': settings.OPENEDX_INSTANCE_DOMAIN,
+                    'user_id': '<lti_user_id>'
+                },
+                'value': 0.3
+            },
+        ]
         """
-        url = urlparse.urljoin(settings.ADAPTIVE_ENGINE_URL, '/engine/api/mastery/learner')
+        url = urlparse.urljoin(settings.ADAPTIVE_ENGINE_URL, '/engine/api/mastery/bulk_update')
         headers = {
             'Authorization': 'Token {}'.format(settings.ADAPTIVE_ENGINE_TOKEN)
         }
-        payload = {
-            'learner': {
-                'lti_user_id': cls._decompress_username(user.username),
-                'tool_consumer_instance_guid': settings.OPENEDX_INSTANCE_DOMAIN,
-            },
-            'masteries': {},
+        learner_info = {
+            'user_id': cls._decompress_username(user.username),
+            'tool_consumer_instance_guid': settings.OPENEDX_INSTANCE_DOMAIN,
         }
+        payload = []
         for score in scores:
-            payload['masteries'][score.knowledge_component.kc_id] = score.value
-        requests.post(url, headers=headers, json=payload)
+            payload.append({
+                'knowledge_component': {
+                    'kc_id': score.knowledge_component.kc_id,
+                },
+                'learner': learner_info,
+                'value':  score.value,
+            })
+        requests.put(url, headers=headers, json=payload)

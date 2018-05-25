@@ -1,7 +1,10 @@
 {% load lpd_filters %}
 {% load lpd_tags %}
 
-<div class="question" data-question-id="{{ question.id }}" data-question-type="{{ question.type }}">
+<div class="question"
+     data-question-id="{{ question.id }}"
+     data-question-type="{{ question.type }}"
+     data-answer-changed="false">
 
   <p class="question-text">
     <span class="question-number">{{ question.section_number }}</span> {{ question.question_text|render_custom_formatting }}

@@ -8,7 +8,7 @@ import ddt
 from django.test import TestCase
 
 from lpd.models import AnswerOption
-from lpd.templatetags.lpd_filters import option_range
+from lpd.templatetags.lpd_filters import option_range, render_custom_formatting
 from lpd.templatetags.lpd_tags import get_answer, get_data
 from lpd.tests.factories import QualitativeQuestionFactory, UserFactory
 from lpd.tests.test_models import QUANTITATIVE_QUESTION_FACTORIES
@@ -68,3 +68,18 @@ class TemplateFilterTests(TestCase):
         """
         range = option_range(count)  # pylint: disable=redefined-builtin
         self.assertEqual(range, expected_range)
+
+    @ddt.data(
+        ('This is not a test.', '<p>This is not a test.</p>'),
+        ('*This* is **not** a test.', '<p><em>This</em> is <strong>not</strong> a test.</p>'),
+        ('<em>This</em> is **not** a test.', '<p><em>This</em> is <strong>not</strong> a test.</p>'),
+        ('<strong>This</strong> is *not* a test.', '<p><strong>This</strong> is <em>not</em> a test.</p>'),
+    )
+    @ddt.unpack
+    def test_render_custom_formatting(self, string, expected_output):
+        """
+        Test that `render_custom_formatting` filter converts Markdown to HTML
+        and preserves custom HTML.
+        """
+        output = render_custom_formatting(string)
+        self.assertEqual(output, expected_output)

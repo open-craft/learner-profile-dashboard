@@ -19,6 +19,11 @@ body {
     cursor: pointer;
 }
 
+.section-instructions {
+    font-size: 0.85rem;
+    font-weight: normal;
+}
+
 .section-intro {
     margin-bottom: 1.6rem;
     font-size: 0.95rem;

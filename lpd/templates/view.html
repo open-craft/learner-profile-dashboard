@@ -2,7 +2,7 @@
 
 {% block content %}
   <div id="view-lpd">
-    <div class="lpd">{{ lpd }}</div>
+    <h1 class="lpd">{{ lpd }}</h1>
 
     {% for profile_section in lpd.sections.all %}
       {% with section_template="section.html" %}

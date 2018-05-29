@@ -158,11 +158,13 @@ $(document).ready(function() {
 
     $('.section-title').click(function(e) {
         var $sectionForm = $(this).parent('form'),
+            $intro = $sectionForm.children('.section-intro'),
             $questions = $sectionForm.children('.section-questions'),
             $controls = $sectionForm.children('.section-controls');
 
-        $questions.toggle();
-        $controls.toggle();
+        $intro.toggle('slow');
+        $questions.toggle('slow');
+        $controls.toggle('slow');
     });
 
     $('.mr-option').click(function(e) {

@@ -57,7 +57,15 @@ class Section(OrderedModel):
         max_length=120,
         blank=True,
         null=True,
-        help_text='Text to display above questions belonging to this section (optional).',
+        help_text='Text to display at the top of this section (optional).',
+    )
+    intro_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text=(
+            'Introductory text to display below section title '
+            'and above questions belonging to this section (optional).'
+        )
     )
 
     order_with_respect_to = 'lpd'
@@ -92,7 +100,15 @@ class Question(models.Model):
         help_text='Number of this question relative to parent section.'
     )
     question_text = models.TextField(
-        help_text='Text to display above answer options (if any) and input fields.',
+        help_text='Text to display above framing text, answer options (if any) and input fields.',
+    )
+    framing_text = models.TextField(
+        blank=True,
+        null=True,
+        help_text=(
+            'Introductory text to display below question text '
+            'and above answer options and input fields belonging to this question (optional).'
+        )
     )
     notes = models.TextField(
         blank=True,
@@ -114,9 +130,9 @@ class Question(models.Model):
     def section_number(self):
         """
         Return string of the form 'X.Y'
-        where X represents `order` of parent section and Y represents `number` of this question.
+        where X represents 1-based `order` of parent section and Y represents `number` of this question.
         """
-        return '{section}.{number}'.format(section=self.section.order, number=self.number)
+        return '{section}.{number}'.format(section=self.section.order+1, number=self.number)
 
 
 class QualitativeQuestion(Question):

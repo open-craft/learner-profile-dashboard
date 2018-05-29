@@ -113,7 +113,7 @@ class QuestionTests(TestCase):
                 log.info('Creating %d questions using %s.', QUESTION_BATCH_SIZE, question_factory)
                 questions = question_factory.build_batch(QUESTION_BATCH_SIZE, section=section)
                 for question in questions:
-                    self.assertEqual(question.section_number, '{}.{}'.format(section.order, question.number))
+                    self.assertEqual(question.section_number, '{}.{}'.format(section.order+1, question.number))
 
 
 class QualitativeQuestionTests(TestCase):

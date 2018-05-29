@@ -54,6 +54,7 @@ class SectionFactory(factory.DjangoModelFactory):
 
     lpd = factory.SubFactory(LearnerProfileDashboardFactory)
     title = factory.Sequence(u'Section {0}'.format)
+    order = factory.Sequence(lambda n: n)
 
 
 class QuestionFactory(factory.DjangoModelFactory):

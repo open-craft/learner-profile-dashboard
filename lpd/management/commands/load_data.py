@@ -98,7 +98,7 @@ class Command(BaseCommand):
         with open(os.path.join(os.getcwd(), 'data', 'quantitative_questions.csv'), 'rb') as quant_file:
             quant_reader = csv.reader(quant_file, quotechar='|')
             for section, number, question_text, question_type, randomize_options, \
-                    max_options, range_min_text, range_max_text in quant_reader:
+                    max_options, answer_option_range in quant_reader:
                 if question_type in QuestionTypes.get_multiple_choice_types():
                     quantitative_question, _ = MultipleChoiceQuestion.objects.get_or_create(
                         section=sections[int(section)],
@@ -121,9 +121,7 @@ class Command(BaseCommand):
                         number=int(number),
                         question_text=question_text,
                         randomize_options=bool(randomize_options),
-                        answer_option_range=int(max_options),
-                        range_min_text=range_min_text,
-                        range_max_text=range_max_text,
+                        answer_option_range=answer_option_range,
                     )
                 quantitative_questions[quantitative_question.section_number] = quantitative_question
 

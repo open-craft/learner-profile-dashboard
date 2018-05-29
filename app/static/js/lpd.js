@@ -23,10 +23,11 @@ $(document).ready(function() {
     var renderChecked = function() {
         var optionInputs = $('.mc-option, .mr-option, .option-rank');
         optionInputs.each(function(i, optionInput) {
-            if ($(optionInput).attr('checked') === 'checked') {
-                $(optionInput).prop('checked', true);
+            var $optionInput = $(optionInput);
+            if ($optionInput.attr('checked') === 'checked') {
+                $optionInput.prop('checked', true);
             } else {
-                $(optionInput).prop('checked', false);
+                $optionInput.prop('checked', false);
             }
         });
     };
@@ -61,14 +62,15 @@ $(document).ready(function() {
             });
 
         $sameValueRanks.each(function(i, sameValueRank) {
-            if ($(sameValueRank).is(':checked')) {
-                $(sameValueRank).prop('checked', false);
+            var $sameValueRank = $(sameValueRank);
+            if ($sameValueRank.is(':checked')) {
+                $sameValueRank.prop('checked', false);
             }
         });
     };
 
     var collectAnswers = function($sectionForm) {
-        var $questions = $sectionForm.find('.question'),
+        var $questions = getUpdatedQuestions($sectionForm),
             qualitativeAnswers = [],
             quantitativeAnswers = [];
 
@@ -95,6 +97,12 @@ $(document).ready(function() {
             'qualitative_answers': JSON.stringify(qualitativeAnswers),
             'quantitative_answers': JSON.stringify(quantitativeAnswers)
         };
+    };
+
+    var getUpdatedQuestions = function($sectionForm) {
+        return $sectionForm.find('.question').filter(function() {
+            return $(this).data('answer-changed') === true;
+        });
     };
 
     var collectAnswerData = function($question, questionID) {
@@ -153,6 +161,13 @@ $(document).ready(function() {
         return $customInput;
     };
 
+    var resetQuestionState = function($sectionForm) {
+        var $questions = getUpdatedQuestions($sectionForm);
+        $questions.each(function(i, question) {
+            $(question).data('answer-changed', false);
+        });
+    };
+
 
     // Event handlers
 
@@ -165,6 +180,10 @@ $(document).ready(function() {
         $intro.toggle('slow');
         $questions.toggle('slow');
         $controls.toggle('slow');
+    });
+
+    $('.question').change(function(e) {
+        $(this).data('answer-changed', true);
     });
 
     $('.mr-option').click(function(e) {
@@ -190,6 +209,7 @@ $(document).ready(function() {
             success: function(data) {
                 console.log('SUCCESS');
                 console.log(data);
+                resetQuestionState($sectionForm);
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.log('ERROR');

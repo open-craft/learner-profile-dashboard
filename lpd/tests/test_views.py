@@ -57,6 +57,17 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.login()
         self.data = {'qualitative_answers': json.dumps([]), 'quantitative_answers': json.dumps([])}
 
+    def _create_qualitative_questions(self, questions_influence_group_membership=False):
+        """
+        Create a set of qualitative questions to use for tests that verify processing of qualitative data.
+        """
+        self.question1 = QualitativeQuestionFactory(
+            id=1, influences_group_membership=questions_influence_group_membership
+        )
+        self.question2 = QualitativeQuestionFactory(
+            id=2, influences_group_membership=questions_influence_group_membership
+        )
+
     def _create_quantitative_questions(self):
         """
         Create a set of quantitative questions to use for tests that verify processing of quantitative data.
@@ -189,17 +200,45 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertEqual(message, 'Could not transmit scores to adaptive engine.')
 
+    @patch('lpd.models.QualitativeQuestion.update_scores')
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))
-    @patch('lpd.models.calculate_probabilities')
-    def test_post_process_qualitative_answers(self, patched_calculate_probabilities, patched_send_learner_data):
+    def test_post_no_qualitative_answers(self, patched_send_learner_data, patched_update_scores):
         """
-        Test that `post` correctly processes qualitative answers.
+        Test that `post` behaves correctly if learner didn't change any of their answers to qualitative questions.
+
+        `post` should skip group membership calculation in this case,
+        and should not attempt to send any data to the adaptive engine.
         """
-        question1 = QualitativeQuestionFactory(id=1)
-        question2 = QualitativeQuestionFactory(id=2)
-        knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc_id_1')
-        knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc_id_2')
+        qualitative_answers = []
+        self.data['qualitative_answers'] = json.dumps(qualitative_answers)
+
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
+
+        qualitative_answers = QualitativeAnswer.objects.all()
+        self.assertEqual(qualitative_answers.count(), 0)
+
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 0)
+
+        # Make sure group membership calculation was skipped
+        patched_update_scores.assert_not_called()
+        # Make sure no learner data was sent to adaptive engine
+        patched_send_learner_data.assert_not_called()
+
+    @patch('lpd.models.QualitativeQuestion.update_scores')
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))
+    def test_post_qual_answers_no_influence(self, patched_send_learner_data, patched_update_scores):
+        """
+        Test that `post` behaves correctly if qualitative answers are not set up to influence group membership.
+
+        `post` should skip group membership calculation in this case,
+        and should not attempt to send any data to the adaptive engine.
+        """
+        self._create_qualitative_questions(questions_influence_group_membership=False)
+        self._create_knowledge_components()
 
         qualitative_answers = [
             {
@@ -213,9 +252,47 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         ]
         self.data['qualitative_answers'] = json.dumps(qualitative_answers)
 
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
+
+        qualitative_answers = QualitativeAnswer.objects.all()
+        self.assertEqual(qualitative_answers.count(), 2)
+
+        scores = Score.objects.all()
+        self.assertEqual(scores.count(), 0)
+
+        # Make sure group membership calculation was skipped
+        patched_update_scores.assert_not_called()
+        # Make sure no learner data was sent to adaptive engine
+        patched_send_learner_data.assert_not_called()
+
+    @patch('lpd.models.calculate_probabilities')
+    @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))
+    def test_post_qualitative_answers(self, patched_send_learner_data, patched_calculate_probabilities):
+        """
+        Test that `post` correctly processes qualitative answers.
+        """
+        self._create_qualitative_questions(questions_influence_group_membership=True)
+        self._create_knowledge_components()
+
+        qualitative_answers = [
+            {
+                'question_id': 1,
+                'answer_text': 'This is a very clever answer.',
+            },
+            {
+                'question_id': 2,
+                'answer_text': 'This is not a very clever answer, but an answer nonetheless.',
+            }
+        ]
+        self.data['qualitative_answers'] = json.dumps(qualitative_answers)
+
+        # Note that group probabilities do not need to sum up to 1.
         group_probabilities = {
-            knowledge_component1.kc_id: 0.1,
-            knowledge_component2.kc_id: 0.9,
+            self.knowledge_component1.kc_id: 0.1,
+            self.knowledge_component2.kc_id: 0.9,
+            self.knowledge_component3.kc_id: 0.7,
         }
         expected_scores = {
             kc_id: 1.0 - value
@@ -230,19 +307,26 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.assertEqual(qualitative_answers.count(), 2)
 
         scores = Score.objects.all()
-        self.assertEqual(scores.count(), 2)
+        self.assertEqual(scores.count(), 3)
 
         # Check answers individually
         self._assert_qualitative_answer_data(
-            qualitative_answers, question1, 'This is a very clever answer.'
+            qualitative_answers, self.question1, 'This is a very clever answer.'
         )
         self._assert_qualitative_answer_data(
-            qualitative_answers, question2, 'This is not a very clever answer, but an answer nonetheless.'
+            qualitative_answers, self.question2, 'This is not a very clever answer, but an answer nonetheless.'
         )
 
         # Check scores individually
-        self._assert_score_data_almost_equal(scores, knowledge_component1, expected_scores[knowledge_component1.kc_id])
-        self._assert_score_data_almost_equal(scores, knowledge_component2, expected_scores[knowledge_component2.kc_id])
+        self._assert_score_data_almost_equal(
+            scores, self.knowledge_component1, expected_scores[self.knowledge_component1.kc_id]
+        )
+        self._assert_score_data_almost_equal(
+            scores, self.knowledge_component2, expected_scores[self.knowledge_component2.kc_id]
+        )
+        self._assert_score_data_almost_equal(
+            scores, self.knowledge_component3, expected_scores[self.knowledge_component3.kc_id]
+        )
 
         # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
         patched_send_learner_data.assert_called_once_with(self.user, list(scores))
@@ -253,7 +337,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         """
         Test that `post` correctly processes quantitative answer whose value is not meaningful.
 
-        When dealing with values that are not meaningful, no answers or scores should be created.
+        When dealing with values that are not meaningful, no answers or scores should be created,
+        and no data should be sent to the adaptive engine.
 
         The only question type for which `post` might receive a value that is not meaningful (i.e., `None`)
         is `QuestionTypes.LIKERT`. See `QuantitativeQuestion.get_value` for details.
@@ -277,8 +362,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         scores = Score.objects.all()
         self.assertEqual(scores.count(), 0)
 
-        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
-        patched_send_learner_data.assert_called_once_with(self.user, [])
+        # Make sure no learner data was sent to adaptive engine
+        patched_send_learner_data.assert_not_called()
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
@@ -349,7 +434,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         When dealing with values that are meaningful
         and corresponding answer options are *not* configured to influence recommendations,
-        appropriate answers should be created, but `post` should skip creating scores.
+        appropriate answers should be created, but `post` should skip creating scores,
+        and should not send any data to the adaptive engine.
         """
         self._create_quantitative_questions()
         self._create_knowledge_components()
@@ -392,8 +478,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self._assert_quantitative_answer_data(quantitative_answers, self.answer_option2, 0, 'Yellow')
         self._assert_quantitative_answer_data(quantitative_answers, self.answer_option3, 5, None)
 
-        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
-        patched_send_learner_data.assert_called_once_with(self.user, [])
+        # Make sure no learner data was sent to adaptive engine
+        patched_send_learner_data.assert_not_called()
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.log.error')
@@ -410,7 +496,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         When dealing with values that are meaningful
         and corresponding answer options are configured to influence recommendations
         but aren't linked to a knowledge component,
-        appropriate answers should be created, but `post` should skip creating scores.
+        appropriate answers should be created, but `post` should skip creating scores,
+        and should not send any data to the adaptive engine.
         """
         self._create_quantitative_questions()
         self._create_answer_options(influences_recommendations=True, link_knowledge_components=False)
@@ -459,8 +546,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             call('Could not create score because %s is not linked to a knowledge component.', self.answer_option3),
         ])
 
-        # Make sure correct set of scores was passed to method for sending learner data to adaptive engine
-        patched_send_learner_data.assert_called_once_with(self.user, [])
+        # Make sure no learner data was sent to adaptive engine
+        patched_send_learner_data.assert_not_called()
 
 
 class CreateLearnerProfileDashboardViewTests(UserSetupMixin, TestCase):

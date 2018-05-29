@@ -80,14 +80,16 @@ class LPDSubmitView(View):
             log.info('Answers successfully updated for user %s', user)
 
         # Send learner data to adaptive engine
-        try:
-            AdaptiveEngineAPIClient.send_learner_data(user, group_scores+answer_scores)
-        except ConnectionError as e:
-            log.error('The following exception occurred when trying to transmit scores for user %s: %s', user, e)
-            return JsonResponse({'message': 'Could not transmit scores to adaptive engine.'}, status=500)
-        else:
-            log.info('Scores successfully transmitted to adaptive engine for user %s', user)
-            return JsonResponse({'message': 'Learner answers updated successfully.'})
+        scores = group_scores + answer_scores
+        if scores:
+            try:
+                AdaptiveEngineAPIClient.send_learner_data(user, scores)
+            except ConnectionError as e:
+                log.error('The following exception occurred when trying to transmit scores for user %s: %s', user, e)
+                return JsonResponse({'message': 'Could not transmit scores to adaptive engine.'}, status=500)
+            else:
+                log.info('Scores successfully transmitted to adaptive engine for user %s', user)
+        return JsonResponse({'message': 'Learner answers updated successfully.'})
 
     @classmethod
     def _process_qualitative_answers(cls, user, qualitative_answers):
@@ -103,6 +105,7 @@ class LPDSubmitView(View):
 
         Return up-to-date `Score` records for further processing.
         """
+        update_group_membership = False
         for qualitative_answer in qualitative_answers:
             question_id = qualitative_answer.get('question_id')
             question = QualitativeQuestion.objects.get(id=question_id)
@@ -118,8 +121,15 @@ class LPDSubmitView(View):
                     text=text
                 ),
             )
+            if not update_group_membership and question.influences_group_membership:
+                update_group_membership = True
 
-        return QualitativeQuestion.update_scores(learner=user)
+        # Update scores iff learner changed their answer to one or more qualitative questions
+        # that are configured to influence recommendations.
+        if update_group_membership:
+            return QualitativeQuestion.update_scores(learner=user)
+
+        return []
 
     @classmethod
     def _process_quantitative_answers(cls, user, quantitative_answers):

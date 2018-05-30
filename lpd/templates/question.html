@@ -19,7 +19,7 @@
   {% endif %}
 
   {% if question.type == 'short-answer' %}
-    <input type="text" class="answer-text" value="{% get_answer question learner %}"/>
+    <input type="text" class="answer-text" value="{% get_answer question learner %}" />
   {% endif %}
 
   {% if question.type == 'mcq' %}

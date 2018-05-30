@@ -589,7 +589,7 @@ class Score(models.Model):
     Represents a learner's score for a specific knowledge node.
 
     For a knowledge component that represents a group,
-    the score is equal to the probability of the learner belonging to that group.
+    the score is equal to the inverse of the probability of the learner belonging to that group.
 
     For a knowledge component that is associated with an answer option,
     the score represents the transformed value of the learner's answer to that answer option.

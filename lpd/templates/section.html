@@ -4,7 +4,9 @@
 
   {% csrf_token %}
 
-  <h2 class="section-title" title="Click to expand/collapse this section">{{ section.title }}</h2>
+  <h2 class="section-title" title="Click to expand/collapse this section">
+    {{ section.title }} <span class="section-instructions">(click to expand and collapse)</span>
+  </h2>
 
   {% if section.intro_text %}
     <p class="section-intro">{{ section.intro_text|render_custom_formatting }}</p>

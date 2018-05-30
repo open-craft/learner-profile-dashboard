@@ -73,7 +73,7 @@
       {% for answer_option in question.get_answer_options %}
         <div class="ranking-option" data-answer-option-id="{{ answer_option.id }}">
           {% get_data answer_option learner as answer_option_data %}
-          {% for i in question.number_of_options_to_rank|range %}
+          {% for i in question.number_of_options_to_rank|ranking_range %}
             <label>
               <input type="radio"
                      name="{{ answer_option.id }}-ranks"
@@ -96,19 +96,18 @@
   {% endif %}
 
   {% if question.type == 'likert' %}
-    <p class="likert-info">This is a {{ question.answer_option_range }}-point scale from {{ question.range_min_text }} to {{ question.range_max_text }}.</p>
     <div class="likert-options">
       {% for answer_option in question.get_answer_options %}
         <div class="likert-option" data-answer-option-id="{{ answer_option.id }}">
           {% get_data answer_option learner as answer_option_data %}
-          {% for i in question.answer_option_range|range %}
+          {% for i, label in question.answer_option_range|likert_range %}
             <label>
               <input type="radio"
                      name="{{ answer_option.id }}-ranks"
                      value="{{ i }}"
                      class="option-rank"
                      {% if answer_option_data.value == i %}checked="checked"{% endif %} />
-              {{ i }}
+              {{ label }}
             </label>
           {% endfor %}
           {{ answer_option.option_text }}

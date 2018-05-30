@@ -8,7 +8,7 @@ import ddt
 from django.test import TestCase
 
 from lpd.models import AnswerOption
-from lpd.templatetags.lpd_filters import option_range, render_custom_formatting
+from lpd.templatetags.lpd_filters import likert_range, ranking_range, render_custom_formatting
 from lpd.templatetags.lpd_tags import get_answer, get_data
 from lpd.tests.factories import QualitativeQuestionFactory, UserFactory
 from lpd.tests.test_models import QUANTITATIVE_QUESTION_FACTORIES
@@ -62,12 +62,42 @@ class TemplateFilterTests(TestCase):
         (5, [1, 2, 3, 4, 5]),
     )
     @ddt.unpack
-    def test_option_range(self, count, expected_range):
+    def test_ranking_range(self, count, expected_range):
         """
-        Test that `option` range filter returns appropriate range.
+        Test that `ranking_range` filter returns appropriate range.
         """
-        range = option_range(count)  # pylint: disable=redefined-builtin
+        range = ranking_range(count)  # pylint: disable=redefined-builtin
         self.assertEqual(range, expected_range)
+
+    @ddt.data(
+        (
+            'value',
+            [
+                (1, 'Not Very Valuable'),
+                (2, 'Slightly Valuable'),
+                (3, 'Valuable'),
+                (4, 'Very Valuable'),
+                (5, 'Extremely Valuable'),
+            ]
+        ),
+        (
+            'agreement',
+            [
+                (1, 'Strongly Disagree'),
+                (2, 'Disagree'),
+                (3, 'Undecided'),
+                (4, 'Agree'),
+                (5, 'Strongly Agree'),
+            ]
+        ),
+    )
+    @ddt.unpack
+    def test_likert_range(self, answer_option_range, expected_range):
+        """
+        Test that `likert_range` filter returns appropriate range.
+        """
+        range = likert_range(answer_option_range)  # pylint: disable=redefined-builtin
+        self.assertEqual(list(range), expected_range)
 
     @ddt.data(
         ('This is not a test.', 'This is not a test.'),

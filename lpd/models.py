@@ -411,22 +411,19 @@ class LikertScaleQuestion(QuantitativeQuestion):
     """
     Represents a (simplified) Likert Scale question, cf. https://en.wikipedia.org/wiki/Likert_scale.
     """
-    answer_option_range = models.PositiveIntegerField(
-        default=5,
-        help_text=(
-            'Number of values that learners can choose from for each answer option. '
-            'For example, to create 5-point scale, set this to 5.'
-        ),
-    )
-    range_min_text = models.CharField(
-        max_length=50,
-        default='strongly disagree',
-        help_text='Meaning of lowest value of Likert scale. For example: "Not very valuable".',
-    )
-    range_max_text = models.CharField(
-        max_length=50,
-        default='strongly agree',
-        help_text='Meaning of highest value of Likert scale. For example: "Extremely valuable."',
+    ANSWER_OPTION_RANGES = {
+        'value': [
+            'Not Very Valuable', 'Slightly Valuable', 'Valuable', 'Very Valuable', 'Extremely Valuable',
+        ],
+        'agreement': [
+            'Strongly Disagree', 'Disagree', 'Undecided', 'Agree', 'Strongly Agree',
+        ],
+    }
+    answer_option_range = models.CharField(
+        choices=zip(ANSWER_OPTION_RANGES.keys(), ANSWER_OPTION_RANGES.keys()),
+        default='agreement',
+        max_length=20,
+        help_text='Range of values to display for answer options belonging to this question.',
     )
 
     def __unicode__(self):

@@ -2,6 +2,8 @@
 Models for Learner Profile Dashboard
 """
 
+import itertools
+
 from django import forms
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
@@ -256,9 +258,13 @@ class QuantitativeQuestion(Question):
 
         - If `randomize_options` is True, return answer options in random order.
         - If `randomize_options` is False, return answer options in alphabetical order (based on `option_text`).
+
+        Always list `fallback_option`s last, in reverse alphabetical order.
         """
         ordering = '?' if self.randomize_options else 'option_text'
-        return self.answer_options.order_by(ordering)
+        regular_options = self.answer_options.filter(fallback_option=False).order_by(ordering)
+        fallback_options = self.answer_options.filter(fallback_option=True).order_by('-option_text')
+        return itertools.chain(regular_options.iterator(), fallback_options.iterator())
 
     @classmethod
     def get_value(cls, question_type, raw_value):
@@ -482,6 +488,13 @@ class AnswerOption(models.Model):
             'Whether answers to this answer option '
             'should be sent to the adaptive engine to tune recommendations.'
         ),
+    )
+    fallback_option = models.BooleanField(
+        default=False,
+        help_text=(
+            'Whether this is a catch-all option that learners would choose '
+            'if none of the other options apply to them.'
+        )
     )
 
     class Meta:

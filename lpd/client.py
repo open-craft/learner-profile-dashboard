@@ -40,7 +40,7 @@ class AdaptiveEngineAPIClient(object):
     @classmethod
     def send_learner_data(cls, user, scores):
         """
-        Sends POST request with up-to-date learner data for `user` to adaptive engine.
+        Sends PUT request with up-to-date learner data for `user` to adaptive engine.
 
         Endpoint: /engine/api/mastery/bulk_update
 

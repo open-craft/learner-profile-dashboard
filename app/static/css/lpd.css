@@ -11,11 +11,12 @@ body {
 
 .section-title {
     padding: 0.4rem;
+    background-color: #f2f2f2;
     cursor: pointer;
 }
 
 .section-title:hover {
-    background-color: #f2f2f2;
+    background-color: #e5e5e5;
     cursor: pointer;
 }
 

@@ -35,7 +35,7 @@ body {
 }
 
 .section-questions, .section-controls, .question {
-    margin-bottom: 2rem;
+    margin-bottom: 4rem;
 }
 
 .question-number, .ranking-option > label:last-of-type, .likert-option > label:last-of-type {

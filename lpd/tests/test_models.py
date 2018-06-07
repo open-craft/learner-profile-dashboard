@@ -359,23 +359,43 @@ class QuantitativeQuestionTestMixin(object):
         Test that `get_answer_options` returns answer options in appropriate order.
         """
         question = self.question_factory(randomize_options=True)
+
+        # Create fallback options first, to make sure order of answer options in DB
+        # doesn't match order that we want to test for.
+        fallback_option0 = AnswerOption.objects.create(
+            content_object=question, option_text="Don't know", fallback_option=True
+        )
+        fallback_option1 = AnswerOption.objects.create(
+            content_object=question, option_text='Other:', fallback_option=True
+        )
+
+        # Create regular answer options
         answer_option0 = AnswerOption.objects.create(content_object=question, option_text='Yellow')
         answer_option1 = AnswerOption.objects.create(content_object=question, option_text='Blue')
         answer_option2 = AnswerOption.objects.create(content_object=question, option_text='Red')
         answer_options = list(question.get_answer_options())
+
         # Question is configured to display answer options in random order,
-        # so we only need to check if `get_answer_options` returns all answer options (and no more)
-        self.assertEqual(len(answer_options), 3)
+        # so we only need to check if `get_answer_options` returns all answer options (and no more).
+        self.assertEqual(len(answer_options), 5)
         for answer_option in [answer_option0, answer_option1, answer_option2]:
             self.assertIn(answer_option, answer_options)
 
+        # However, fallback options need to be listed last, in reverse alphabetical order:
+        self.assertEqual(answer_options[3:], [fallback_option1, fallback_option0])
+
+        # Disable randomization option
         question.randomize_options = False
         question.save()
+
         answer_options = list(question.get_answer_options())
         # Question is configured *not* to display answer options in random order,
-        # so we need to check if `get_answer_options` returns answer options in alphabetical order.
-        self.assertEqual(len(answer_options), 3)
-        self.assertEqual(answer_options, [answer_option1, answer_option2, answer_option0])
+        # so we need to check if `get_answer_options` returns answer options in alphabetical order,
+        # and whether it lists fallback options last, in reverse alphabetical order.
+        self.assertEqual(len(answer_options), 5)
+        self.assertEqual(
+            answer_options, [answer_option1, answer_option2, answer_option0, fallback_option1, fallback_option0]
+        )
 
 
 @ddt.ddt

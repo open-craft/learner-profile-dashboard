@@ -25,8 +25,11 @@ body {
     font-weight: normal;
 }
 
-.section-intro {
+.section-intro, .submit-instructions {
     margin-bottom: 1.6rem;
+}
+
+.section-intro {
     font-size: 0.95rem;
 }
 
@@ -58,6 +61,9 @@ textarea.answer-text {
 
 .question-framing {
     font-size: 0.9rem;
+}
+
+.question-framing, .submit-instructions {
     font-style: italic;
 }
 

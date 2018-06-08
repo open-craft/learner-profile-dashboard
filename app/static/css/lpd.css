@@ -41,7 +41,7 @@ body {
     margin-bottom: 4rem;
 }
 
-.question-number, .ranking-option > label:last-of-type, .likert-option > label:last-of-type {
+.question-number, .ranking-option > label:last-of-type {
     margin-right: 1.4rem;
 }
 
@@ -51,7 +51,7 @@ textarea.answer-text {
     padding: 0.8rem;
 }
 
-.question label, .ranking-option, .likert-option {
+.question label, .ranking-option {
     margin-bottom: 1rem;
 }
 
@@ -61,6 +61,20 @@ textarea.answer-text {
 
 .mc-options > label, .mr-options > label {
     display: block;
+}
+
+.likert-options table {
+    border-collapse: collapse;
+    border-style: hidden;
+}
+
+.likert-options th, .likert-options td {
+    border: 2px solid #f2f2f2;
+    padding: 1rem;
+}
+
+.likert-options th, .answer-option-value {
+    text-align: center;
 }
 
 .question-framing {

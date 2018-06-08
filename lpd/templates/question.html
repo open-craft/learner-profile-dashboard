@@ -96,29 +96,46 @@
   {% endif %}
 
   {% if question.type == 'likert' %}
-    <div class="quantitative-options likert-options">
-      {% for answer_option in question.get_answer_options %}
-        <div class="likert-option" data-answer-option-id="{{ answer_option.id }}">
-          {% get_data answer_option learner as answer_option_data %}
-          {% for i, label in question.answer_option_range|likert_range %}
-            <label>
-              <input type="radio"
-                     name="{{ answer_option.id }}-ranks"
-                     value="{{ i }}"
-                     class="option-rank"
-                     {% if answer_option_data.value == i %}checked="checked"{% endif %} />
-              {{ label }}
-            </label>
+    <div class="likert-options">
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <!-- Empty header for column containing answer option texts -->
+            </th>
+              {% for _, label in question.answer_option_range|likert_range %}
+                <th>{{ label }}</th>
+              {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for answer_option in question.get_answer_options %}
+            {% get_data answer_option learner as answer_option_data %}
+            <tr class="likert-option" data-answer-option-id="{{ answer_option.id }}">
+              <td>
+                {{ answer_option.option_text }}
+                {% if answer_option.allows_custom_input %}
+                  <input type="text"
+                         name="{{ question.id }}-custom-input"
+                         class="custom-input"
+                         value="{{ answer_option_data.custom_input }}" />
+                {% endif %}
+              </td>
+              {% for i, _ in question.answer_option_range|likert_range %}
+                <td class="answer-option-value">
+                  <label>
+                    <input type="radio"
+                           name="{{ answer_option.id }}-ranks"
+                           value="{{ i }}"
+                           class="option-rank"
+                           {% if answer_option_data.value == i %}checked="checked"{% endif %} />
+                  </label>
+                </td>
+              {% endfor %}
+            </tr>
           {% endfor %}
-          {{ answer_option.option_text }}
-          {% if answer_option.allows_custom_input %}
-            <input type="text"
-                   name="{{ question.id }}-custom-input"
-                   class="custom-input"
-                   value="{{ answer_option_data.custom_input }}" />
-          {% endif %}
-        </div>
-      {% endfor %}
+        </tbody>
+      </table>
     </div>
   {% endif %}
 

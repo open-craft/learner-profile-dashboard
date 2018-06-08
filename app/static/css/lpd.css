@@ -55,6 +55,10 @@ textarea.answer-text {
     margin-bottom: 1rem;
 }
 
+.quantitative-options {
+    margin-left: 4.4rem;
+}
+
 .mc-options > label, .mr-options > label {
     display: block;
 }

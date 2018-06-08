@@ -23,7 +23,7 @@
   {% endif %}
 
   {% if question.type == 'mcq' %}
-    <div class="mc-options">
+    <div class="quantitative-options mc-options">
       {% for answer_option in question.get_answer_options %}
         <label>
           {% get_data answer_option learner as answer_option_data %}
@@ -46,7 +46,7 @@
   {% endif %}
 
   {% if question.type == 'mrq' %}
-    <div class="mr-options" data-max-options-to-select="{{ question.max_options_to_select }}">
+    <div class="quantitative-options mr-options" data-max-options-to-select="{{ question.max_options_to_select }}">
       {% for answer_option in question.get_answer_options %}
         <label>
           {% get_data answer_option learner as answer_option_data %}
@@ -69,7 +69,7 @@
   {% endif %}
 
   {% if question.type == 'ranking' %}
-    <div class="ranking-options">
+    <div class="quantitative-options ranking-options">
       {% for answer_option in question.get_answer_options %}
         <div class="ranking-option" data-answer-option-id="{{ answer_option.id }}">
           {% get_data answer_option learner as answer_option_data %}
@@ -96,7 +96,7 @@
   {% endif %}
 
   {% if question.type == 'likert' %}
-    <div class="likert-options">
+    <div class="quantitative-options likert-options">
       {% for answer_option in question.get_answer_options %}
         <div class="likert-option" data-answer-option-id="{{ answer_option.id }}">
           {% get_data answer_option learner as answer_option_data %}

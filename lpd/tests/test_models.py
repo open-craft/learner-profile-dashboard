@@ -7,7 +7,9 @@ import random
 
 import ddt
 from django.test import TestCase
+from freezegun import freeze_time
 from mock import call, patch
+from pytz import utc
 
 from lpd.constants import QuestionTypes, UnknownQuestionTypeError
 from lpd.models import (
@@ -20,7 +22,8 @@ from lpd.models import (
     QuantitativeAnswer,
     QuantitativeQuestion,
     RankingQuestion,
-    Score
+    Score,
+    Submission,
 )
 from lpd.tests.factories import (
     KnowledgeComponentFactory,
@@ -31,8 +34,10 @@ from lpd.tests.factories import (
     QualitativeQuestionFactory,
     RankingQuestionFactory,
     SectionFactory,
-    UserFactory
+    SubmissionFactory,
+    UserFactory,
 )
+from lpd.tests.mixins import UserSetupMixin
 
 
 # Globals
@@ -601,3 +606,40 @@ class ScoreTests(TestCase):
         learner = UserFactory()
         score = Score.objects.create(knowledge_component=knowledge_component, learner=learner, value=23)
         self.assertEqual(str(score), 'Score 1: 23')
+
+
+class SubmissionTests(UserSetupMixin, TestCase):
+    """Submission model tests."""
+
+    def setUp(self):
+        self.section = SectionFactory(title='Basic information')
+        super(SubmissionTests, self).setUp()
+
+    def test_str(self):
+        """
+        Test string representation of `Submission` model.
+        """
+        submission = SubmissionFactory(section=self.section, learner=self.user)
+        self.assertEqual(str(submission), 'Submission 1: Basic information, student_user')
+
+    def test_get_last_update(self):
+        """
+        Test that `get_last_update` behaves correctly for existing and non-existing submissions.
+
+        - If submission does not exist, `get_last_update` should return `None` (and not error out).
+        - If submission exists, `get_last_update` should return value of `updated` field.
+        """
+        # Submission does not exist
+        try:
+            last_update = Submission.get_last_update(self.section, self.user)
+        except Submission.DoesNotExist:
+            self.fail('`Submission.get_last_update` should not error out if submission does not exist.')
+        else:
+            self.assertIsNone(last_update)
+
+        # Submission exists
+        with freeze_time('2017-01-17 11:25:00') as freezed_time:
+            updated = utc.localize(freezed_time())
+            SubmissionFactory(section=self.section, learner=self.user, updated=updated)
+            last_update = Submission.get_last_update(self.section, self.user)
+            self.assertEqual(last_update, updated)

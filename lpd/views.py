@@ -10,6 +10,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from requests import ConnectionError
 
@@ -23,7 +24,10 @@ from lpd.models import (
     QuantitativeAnswer,
     QuantitativeQuestion,
     Score,
+    Section,
+    Submission,
 )
+from lpd.templatetags.lpd_tags import get_last_update
 
 
 # Globals
@@ -59,7 +63,14 @@ class LPDSubmitView(View):
 
     def post(self, request, *args, **kwargs):
         """
-        Persist learner answers to LPD questions, and send up-to-date learner data to adaptive engine.
+        Persist learner answers to LPD questions, send up-to-date learner data to adaptive engine,
+        and update submission data.
+
+        Note that we currently update submission data for *all* submissions,
+        irrespective of the number of answers that they contain.
+        In particular, we record the date and time of a submission
+        even if the learner did not update any of their answers prior to clicking the submit button
+        for a given section.
         """
         user = User.objects.get(username=request.user.username)
         qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
@@ -89,7 +100,21 @@ class LPDSubmitView(View):
                 return JsonResponse({'message': 'Could not transmit scores to adaptive engine.'}, status=500)
             else:
                 log.info('Scores successfully transmitted to adaptive engine for user %s', user)
-        return JsonResponse({'message': 'Learner answers updated successfully.'})
+
+        # Update submission data
+        section_id = request.POST.get('section_id')
+        try:
+            last_update = self._process_submission(user, section_id)
+        except Section.DoesNotExist as e:
+            log.error('The following exception occurred when trying to update submission data for user %s: %s', user, e)
+            return JsonResponse({'message': 'Could not update submission data.'}, status=500)
+        else:
+            log.info('Submission data successfully updated for user %s and section %s', user, section_id)
+
+        return JsonResponse({
+            'message': 'Learner answers updated successfully.',
+            'last_update': last_update,
+        })
 
     @classmethod
     def _process_qualitative_answers(cls, user, qualitative_answers):
@@ -225,6 +250,22 @@ class LPDSubmitView(View):
             else:
                 log.error('Could not create score because %s is not linked to a knowledge component.', answer_option)
         return score
+
+    @classmethod
+    def _process_submission(cls, user, section_id):
+        """
+        Update date and time at which `user` last submitted section identified by `section_id`
+        and return it.
+        """
+        section = Section.objects.get(id=section_id)
+        Submission.objects.update_or_create(
+            section=section,
+            learner=user,
+            defaults={
+                'updated': timezone.now()
+            }
+        )
+        return get_last_update(section, user)
 
 
 class LearnerProfileDashboardViewMixin(object):

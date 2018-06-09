@@ -21,8 +21,11 @@ body {
 }
 
 .section-instructions {
-    font-size: 0.85rem;
     font-weight: normal;
+}
+
+.section-instructions, .submission-info {
+    font-size: 0.85rem;
 }
 
 .section-intro, .submit-instructions {
@@ -41,7 +44,7 @@ body {
     margin-bottom: 4rem;
 }
 
-.question-number, .ranking-option > label:last-of-type {
+.question-number, .ranking-option > label:last-of-type, .section-submit {
     margin-right: 1.4rem;
 }
 
@@ -81,7 +84,7 @@ textarea.answer-text {
     font-size: 0.9rem;
 }
 
-.question-framing, .submit-instructions {
+.question-framing, .submit-instructions, .submission-info {
     font-style: italic;
 }
 

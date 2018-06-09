@@ -615,3 +615,38 @@ class Score(models.Model):
 
     def __unicode__(self):
         return 'Score {id}: {value}'.format(id=self.id, value=self.value)
+
+
+class Submission(models.Model):
+    """
+    Tracks submission data for a specific section and learner.
+    """
+    section = models.ForeignKey('Section')
+    learner = models.ForeignKey(settings.AUTH_USER_MODEL)
+    updated = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text=(
+            'The date and time at which the learner associated with this submission '
+            'last submitted the section associated with this submission.'
+        ),
+    )
+
+    def __unicode__(self):
+        return 'Submission {id}: {section_title}, {username}'.format(
+            id=self.id,
+            section_title=self.section.title or '<section title not set>',
+            username=self.learner.username,
+        )
+
+    @classmethod
+    def get_last_update(cls, section, learner):
+        """
+        Return date and time at which `learner` last submitted `section`.
+        """
+        try:
+            submission = cls.objects.get(section=section, learner=learner)
+        except cls.DoesNotExist:
+            return None
+        else:
+            return submission.updated

@@ -16,7 +16,8 @@ from lpd.models import (
     QualitativeAnswer,
     QualitativeQuestion,
     RankingQuestion,
-    Section
+    Section,
+    Submission,
 )
 
 
@@ -115,3 +116,13 @@ class KnowledgeComponentFactory(factory.DjangoModelFactory):
     class Meta:
         model = KnowledgeComponent
         django_get_or_create = ['kc_id']
+
+
+class SubmissionFactory(factory.DjangoModelFactory):
+    """Factory for submissions."""
+    class Meta:
+        model = Submission
+        django_get_or_create = ['section', 'learner']
+
+    section = factory.SubFactory(SectionFactory)
+    learner = factory.SubFactory(UserFactory)

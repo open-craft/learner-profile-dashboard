@@ -388,6 +388,49 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         # Make sure submission data was updated
         self._assert_submission_data()
 
+    @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))
+    def test_post_qual_answers_split_answers(self):
+        """
+        Test that `post` correctly processes qualitative answers.
+        """
+        question1 = QualitativeQuestionFactory(split_answer=False)
+        question2 = QualitativeQuestionFactory(split_answer=True)
+
+        qualitative_answers = [
+            {
+                'question_id': 1,
+                'answer_text': 'This is a very clever answer, I must say.',
+            },
+            {
+                'question_id': 2,
+                'answer_text': 'This is not a very clever answer, but an answer nonetheless.',
+            }
+        ]
+        self.data['qualitative_answers'] = json.dumps(qualitative_answers)
+
+        response = self.client.post(reverse('lpd:submit'), self.data)
+        self.assertEqual(response.status_code, 200)
+
+        qualitative_answers = QualitativeAnswer.objects.all()
+        self.assertEqual(qualitative_answers.count(), 3)
+
+        # Check answers individually
+        question1_answers = qualitative_answers.filter(question=question1)
+        self.assertEqual(question1_answers.count(), 1)
+
+        question1_answer = question1_answers.get()
+        self.assertEqual(question1_answer.learner, self.user)
+        self.assertEqual(question1_answer.text, 'This is a very clever answer, I must say.')
+
+        question2_answers = qualitative_answers.filter(question=question2)
+        self.assertEqual(question2_answers.count(), 2)
+
+        for question2_answer, expected_text in zip(
+                question2_answers, ['This is not a very clever answer', 'but an answer nonetheless.']
+        ):
+            self.assertEqual(question2_answer.learner, self.user)
+            self.assertEqual(question2_answer.text, expected_text)
+
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
     def test_post_quant_answer_not_meaningful(self, patched_send_learner_data):

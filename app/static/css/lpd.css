@@ -48,7 +48,12 @@ body {
     margin-right: 1.4rem;
 }
 
-textarea.answer-text {
+.answer-text.short-answer {
+    min-width: 20%;
+    padding: 0.5rem;
+}
+
+.answer-text.essay {
     width: 60%;
     min-height: 10rem;
     padding: 0.8rem;

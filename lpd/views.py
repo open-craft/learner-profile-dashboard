@@ -123,9 +123,9 @@ class LPDSubmitView(View):
 
         This involves:
 
-         - Creating/updating a `QualitativeAnswer` for `user`, for each qualitative answer in request.
+         - Creating/updating one or more `QualitativeAnswer`s for `user`, for each qualitative answer in request.
          - Creating/updating `Score` records for `user` and appropriate knowledge components,
-           using all of the `QualitativeAnswer`s submitted so far by the `user`
+           using all relevant `QualitativeAnswer`s submitted so far by the `user`
            (check models.QualitativeQuestion.update_scores() for details).
 
         Return up-to-date `Score` records for further processing.
@@ -135,17 +135,26 @@ class LPDSubmitView(View):
             question_id = qualitative_answer.get('question_id')
             question = QualitativeQuestion.objects.get(id=question_id)
             text = qualitative_answer.get('answer_text')
+
             log.info(
                 'Creating or updating answer from user %s for question %s. New text: %s',
                 user, question, text
             )
-            QualitativeAnswer.objects.update_or_create(
-                learner=user,
-                question=question,
-                defaults=dict(
-                    text=text
-                ),
-            )
+
+            # Delete existing answers to make sure we don't end up keeping obsolete parts around
+            QualitativeAnswer.objects.filter(learner=user, question=question).delete()
+
+            answer_components = question.get_answer_components(text)
+
+            log.info('Answer components to store as separate answers: %s', answer_components)
+
+            for answer_component in answer_components:
+                QualitativeAnswer.objects.create(
+                    learner=user,
+                    question=question,
+                    text=answer_component,
+                )
+
             if not update_group_membership and question.influences_group_membership:
                 update_group_membership = True
 

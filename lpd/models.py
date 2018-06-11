@@ -3,6 +3,7 @@ Models for Learner Profile Dashboard
 """
 
 import itertools
+import re
 
 from django import forms
 from django.conf import settings
@@ -157,6 +158,14 @@ class QualitativeQuestion(Question):
             'when calculating group membership for specific learners.'
         ),
     )
+    split_answer = models.BooleanField(
+        default=False,
+        help_text=(
+            'Whether answers to this question consist of a comma-separated list of values '
+            'that should be stored as separate answers to facilitate certain post-processing steps '
+            'after export.'
+        )
+    )
 
     def __unicode__(self):
         return 'QualitativeQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
@@ -172,12 +181,23 @@ class QualitativeQuestion(Question):
         """
         Return answer that `learner` provided for this question.
         """
-        try:
-            answer = QualitativeAnswer.objects.get(question=self, learner=learner)
-        except QualitativeAnswer.DoesNotExist:
+        answers = QualitativeAnswer.objects.filter(question=self, learner=learner).order_by('id')
+        if not answers.count():
             return ''
+        return ', '.join(answer.text for answer in answers)
+
+    def get_answer_components(self, answer_text):
+        """
+        Return list of answer components that correspond to `answer_text`.
+
+        Compute result based on value of `split_answers` field.
+        """
+        if self.split_answer:
+            # Split answer text to obtain components to store individually
+            answer_components = re.split(r' *, *', answer_text)
         else:
-            return answer.text
+            answer_components = [answer_text]
+        return answer_components
 
     @classmethod
     def update_scores(cls, learner):

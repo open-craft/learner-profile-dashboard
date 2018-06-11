@@ -15,11 +15,11 @@
   {% endif %}
 
   {% if question.type == 'essay' %}
-    <textarea class="answer-text">{% get_answer question learner %}</textarea>
+    <textarea class="answer-text essay">{% get_answer question learner %}</textarea>
   {% endif %}
 
   {% if question.type == 'short-answer' %}
-    <input type="text" class="answer-text" value="{% get_answer question learner %}" />
+    <input type="text" class="answer-text short-answer" value="{% get_answer question learner %}" />
   {% endif %}
 
   {% if question.type == 'mcq' %}

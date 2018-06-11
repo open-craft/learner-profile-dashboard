@@ -105,7 +105,6 @@ class QualitativeAnswerFactory(factory.DjangoModelFactory):
     """Factory for qualitative answers."""
     class Meta:
         model = QualitativeAnswer
-        django_get_or_create = ['learner', 'question']
 
     learner = factory.SubFactory(UserFactory)
     question = factory.SubFactory(QualitativeQuestionFactory)

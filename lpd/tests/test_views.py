@@ -236,7 +236,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self, patched_process_qual_answers, patched_process_quant_answers, patched_send_learner_data
     ):
         """
-        Test that `post` method returns appropriate response if processing of answer data is successful.
+        Test that `post` method returns appropriate response if sending learner data to adaptive engine fails.
         """
         patched_send_learner_data.side_effect = ConnectionError
         response = self.client.post(reverse('lpd:submit'), self.data)

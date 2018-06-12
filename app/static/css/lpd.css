@@ -20,6 +20,28 @@ body {
     cursor: pointer;
 }
 
+.section-collapse {
+    margin-right: 0.2em;
+}
+
+.section-collapse.expanded {
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    transform: rotate(90deg);
+    transition-property: transform;
+    transition-duration: 600ms;
+}
+
+.section-collapse.collapsed {
+    -webkit-transform: rotate(0deg);
+    -moz-transform: rotate(0deg);
+    -ms-transform: rotate(0deg);
+    transform: rotate(0deg);
+    transition-property: transform;
+    transition-duration: 600ms;
+}
+
 .section-instructions {
     font-weight: normal;
 }

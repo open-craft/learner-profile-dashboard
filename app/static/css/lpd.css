@@ -85,7 +85,7 @@ body {
     margin-bottom: 1rem;
 }
 
-.quantitative-options {
+.question-framing, .answer-text, .quantitative-options {
     margin-left: 4.4rem;
 }
 

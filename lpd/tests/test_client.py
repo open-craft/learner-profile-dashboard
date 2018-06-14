@@ -79,8 +79,8 @@ class AdaptiveEngineAPIClientTests(UserSetupMixin, TestCase):
             },
         ]
 
-        with patch('lpd.client.requests.put') as patched_post:
+        with patch('lpd.client.requests.put') as patched_put:
             AdaptiveEngineAPIClient.send_learner_data(self.user, scores)
-            patched_post.assert_called_once_with(
+            patched_put.assert_called_once_with(
                 expected_url, headers=expected_headers, json=expected_payload
             )

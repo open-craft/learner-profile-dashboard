@@ -11,21 +11,50 @@ body {
 
 .section-title {
     padding: 0.4rem;
-    cursor: pointer;
-}
-
-.section-title:hover {
     background-color: #f2f2f2;
     cursor: pointer;
 }
 
+.section-title:hover {
+    background-color: #e5e5e5;
+    cursor: pointer;
+}
+
+.section-collapse {
+    margin-right: 0.2em;
+}
+
+.section-collapse.expanded {
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    transform: rotate(90deg);
+    transition-property: transform;
+    transition-duration: 600ms;
+}
+
+.section-collapse.collapsed {
+    -webkit-transform: rotate(0deg);
+    -moz-transform: rotate(0deg);
+    -ms-transform: rotate(0deg);
+    transform: rotate(0deg);
+    transition-property: transform;
+    transition-duration: 600ms;
+}
+
 .section-instructions {
-    font-size: 0.85rem;
     font-weight: normal;
 }
 
-.section-intro {
+.section-instructions, .submission-info {
+    font-size: 0.85rem;
+}
+
+.section-intro, .submit-instructions {
     margin-bottom: 1.6rem;
+}
+
+.section-intro {
     font-size: 0.95rem;
 }
 
@@ -34,29 +63,55 @@ body {
 }
 
 .section-questions, .section-controls, .question {
-    margin-bottom: 2rem;
+    margin-bottom: 4rem;
 }
 
-.question-number, .ranking-option > label:last-of-type, .likert-option > label:last-of-type {
+.question-number, .ranking-option > label:last-of-type, .section-submit {
     margin-right: 1.4rem;
 }
 
-textarea.answer-text {
+.answer-text.short-answer {
+    min-width: 20%;
+    padding: 0.5rem;
+}
+
+.answer-text.essay {
     width: 60%;
     min-height: 10rem;
     padding: 0.8rem;
 }
 
-.question label, .ranking-option, .likert-option {
+.question label, .ranking-option {
     margin-bottom: 1rem;
+}
+
+.question-framing, .answer-text, .quantitative-options {
+    margin-left: 4.4rem;
 }
 
 .mc-options > label, .mr-options > label {
     display: block;
 }
 
+.likert-options table {
+    border-collapse: collapse;
+    border-style: hidden;
+}
+
+.likert-options th, .likert-options td {
+    border: 2px solid #f2f2f2;
+    padding: 1rem;
+}
+
+.likert-options th, .answer-option-value {
+    text-align: center;
+}
+
 .question-framing {
     font-size: 0.9rem;
+}
+
+.question-framing, .submit-instructions, .submission-info {
     font-style: italic;
 }
 

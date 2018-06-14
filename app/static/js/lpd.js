@@ -168,15 +168,24 @@ $(document).ready(function() {
         });
     };
 
+    var updateSubmissionInfo = function($sectionForm, data) {
+        var $submissionInfo = $sectionForm.find('.submission-info'),
+            lastUpdate = data.last_update;
+        $submissionInfo.text(lastUpdate);
+    };
+
 
     // Event handlers
 
     $('.section-title').click(function(e) {
         var $sectionForm = $(this).parent('form'),
+            $sectionCollapse = $sectionForm.find('.section-collapse'),
             $intro = $sectionForm.children('.section-intro'),
             $questions = $sectionForm.children('.section-questions'),
             $controls = $sectionForm.children('.section-controls');
 
+        $sectionCollapse.toggleClass('expanded');
+        $sectionCollapse.toggleClass('collapsed');
         $intro.toggle('slow');
         $questions.toggle('slow');
         $controls.toggle('slow');
@@ -200,7 +209,10 @@ $(document).ready(function() {
         console.log('Submitting answers ...');
 
         var $sectionForm = $(this).parents('form'),
+            sectionID = $sectionForm.data('section-id'),
             answers = collectAnswers($sectionForm);
+
+        answers['section_id'] = sectionID;
 
         $.ajax({
             url: 'submit',
@@ -210,6 +222,7 @@ $(document).ready(function() {
                 console.log('SUCCESS');
                 console.log(data);
                 resetQuestionState($sectionForm);
+                updateSubmissionInfo($sectionForm, data);
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.log('ERROR');

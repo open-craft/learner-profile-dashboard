@@ -1,11 +1,17 @@
 {% load lpd_filters %}
+{% load lpd_tags %}
 
-<form id="section-form" name="{{ form.form_name }}" action="#form" method="post" enctype="multipart/form-data">
+<form id="section-form"
+      name="{{ form.form_name }}"
+      action="#form"
+      method="post"
+      enctype="multipart/form-data"
+      data-section-id="{{ section.id }}">
 
   {% csrf_token %}
 
   <h2 class="section-title" title="Click to expand/collapse this section">
-    {{ section.title }} <span class="section-instructions">(click to expand and collapse)</span>
+    <i class="fas fa-caret-right section-collapse expanded"></i> {{ section.title }} <span class="section-instructions">(click to expand and collapse)</span>
   </h2>
 
   {% if section.intro_text %}
@@ -21,9 +27,20 @@
   </div>
 
   <div class="section-controls">
+    <p class="submit-instructions">
+      Don’t forget to submit! Your answers will not be saved until you click the submit button below.
+    </p>
     <button type="submit" class="section-submit">
       Submit your answers
     </button>
+    {% get_last_update section learner as last_update %}
+    <span class="submission-info">
+      {% if last_update %}
+        {{ last_update }}
+      {% else %}
+        Not yet submitted
+      {% endif %}
+    </span>
   </div>
 
 </form>

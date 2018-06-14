@@ -4,7 +4,22 @@ Custom template tags for Learner Profile Dashboard
 
 from django import template
 
+from lpd.models import Submission
+
 register = template.Library()
+
+
+@register.assignment_tag
+def get_last_update(section, learner):
+    """
+    Return date and time at which `learner` last submitted `section`.
+    """
+    last_update = Submission.get_last_update(section, learner)
+    if last_update is not None:
+        return 'Submitted on {last_update}'.format(
+            last_update=last_update.strftime('%m/%d/%Y at %I:%M %p')
+        )
+    return last_update
 
 
 @register.simple_tag

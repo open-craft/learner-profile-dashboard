@@ -444,7 +444,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         - A `Submission` should be created/updated to record the event.
 
         The only question type for which `post` might receive a value that is not meaningful (i.e., `None`)
-        is `QuestionTypes.LIKERT`. See `QuantitativeQuestion.get_value` for details.
+        is `QuestionTypes.LIKERT`. See `QuantitativeQuestion.get_answer_value` for details.
         """
         quantitative_answers = [
             {

@@ -375,12 +375,12 @@ class QuantitativeQuestionTests(TestCase):
         (QuestionTypes.LIKERT, None, None),
     )
     @ddt.unpack
-    def test_get_value(self, question_type, raw_value, expected_value):
+    def test_get_answer_value(self, question_type, raw_value, expected_value):
         """
-        Test that `get_value` returns appropriate values for different question types.
+        Test that `get_answer_value` returns appropriate values for different question types.
         """
-        value = QuantitativeQuestion.get_value(question_type, raw_value)
-        self.assertEqual(value, expected_value)
+        answer_value = QuantitativeQuestion.get_answer_value(question_type, raw_value)
+        self.assertEqual(answer_value, expected_value)
 
 
 class QuantitativeQuestionTestMixin(object):
@@ -458,15 +458,15 @@ class MultipleChoiceQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         (1, 0),
     )
     @ddt.unpack
-    def test__get_score(self, value, expected_score):
+    def test__get_score(self, answer_value, expected_score):
         """
-        Test that `_get_score` returns appropriate value
-        and raises exception for invalid values.
+        Test that `_get_score` returns appropriate score
+        and raises exception for invalid answer values.
         """
         with self.assertRaises(AssertionError):
-            MultipleChoiceQuestion._get_score(value+23)
+            MultipleChoiceQuestion._get_score(answer_value+23)
 
-        score = MultipleChoiceQuestion._get_score(value)
+        score = MultipleChoiceQuestion._get_score(answer_value)
         self.assertEqual(score, expected_score)
 
 
@@ -506,12 +506,12 @@ class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         (4, 1.0),
     )
     @ddt.unpack
-    def test__get_score(self, value, expected_score):
+    def test__get_score(self, answer_value, expected_score):
         """
-        Test that `_get_score` returns appropriate value.
+        Test that `_get_score` returns appropriate score.
         """
         self.question_factory(number_of_options_to_rank=3)
-        score = RankingQuestion._get_score(value)
+        score = RankingQuestion._get_score(answer_value)
         self.assertEqual(score, expected_score)
 
 

@@ -213,19 +213,19 @@ class LPDSubmitView(View):
             raw_value = quantitative_answer.get('answer_option_value')
             custom_input = quantitative_answer.get('answer_option_custom_input')
 
-            # Get value to store and compute score from
-            value = QuantitativeQuestion.get_value(question_type, raw_value)
+            # Get answer value to store and compute score from
+            answer_value = QuantitativeQuestion.get_answer_value(question_type, raw_value)
 
-            if value is None:
+            if answer_value is None:
                 continue
 
-            # We have a meaningful `value`, so fetch answer option that answer belongs to from DB
+            # We have a meaningful `answer_value`, so fetch answer option that answer belongs to from DB
             answer_option = AnswerOption.objects.get(id=answer_option_id)
 
             # Create or update answer for answer option
-            cls._update_or_create_answer(user, answer_option, value, custom_input)
+            cls._update_or_create_answer(user, answer_option, answer_value, custom_input)
             # Create or update score for adaptive engine
-            score = cls._update_or_create_score(user, question_type, answer_option, value)
+            score = cls._update_or_create_score(user, question_type, answer_option, answer_value)
 
             if score is not None:
                 scores.append(score)
@@ -233,15 +233,15 @@ class LPDSubmitView(View):
         return scores
 
     @classmethod
-    def _update_or_create_answer(cls, user, answer_option, value, custom_input):
+    def _update_or_create_answer(cls, user, answer_option, answer_value, custom_input):
         """
         Create or update `QuantitativeAnswer` for `user` and `answer_option`,
-        taking into account `value` and `custom_input`.
+        taking into account `answer_value` and `custom_input`.
 
         Note that this method should only be called
-        if `value` is meaningful (i.e., if it is not `None`).
+        if `answer_value` is meaningful (i.e., if it is not `None`).
         """
-        answer_data = dict(value=value)
+        answer_data = dict(value=answer_value)
         if custom_input is not None:
             answer_data['custom_input'] = custom_input
 
@@ -259,19 +259,19 @@ class LPDSubmitView(View):
         )
 
     @classmethod
-    def _update_or_create_score(cls, user, question_type, answer_option, value):
+    def _update_or_create_score(cls, user, question_type, answer_option, answer_value):
         """
         Create or update `Score` for `user` and knowledge component associated with `answer_option`, and return it.
 
         Note that this method should only be called
-        if `value` is meaningful (i.e., if it is not `None`).
+        if `answer_value` is meaningful (i.e., if it is not `None`).
         """
         score = None
         if answer_option.influences_recommendations:
             knowledge_component = answer_option.knowledge_component
             if knowledge_component:
-                score_value = QuantitativeQuestion.get_score(question_type, value)
-                score_data = dict(value=score_value)
+                score = QuantitativeQuestion.get_score(question_type, answer_value)
+                score_data = dict(value=score)
 
                 log.info(
                     'Creating or updating score for user %s for %s.\n'
@@ -279,8 +279,8 @@ class LPDSubmitView(View):
                     '- Score: %s',
                     user,
                     answer_option,
-                    value,
-                    score_value
+                    answer_value,
+                    score
                 )
 
                 score, _ = Score.objects.update_or_create(

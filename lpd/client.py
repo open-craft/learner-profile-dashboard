@@ -3,10 +3,17 @@ API client for communicating with VPAL's Adaptive Engine
 """
 
 import base64
+import logging
+import pprint
 import urlparse
 
 from django.conf import settings
 import requests
+
+
+# Globals
+
+log = logging.getLogger(__name__)
 
 
 # Classes
@@ -86,4 +93,13 @@ class AdaptiveEngineAPIClient(object):
                 'learner': learner_info,
                 'value':  score.value,
             })
+        log.info(
+            'Attempting to transmit the following payload to %s:\n%s',
+            url,
+            pprint.pformat(payload)
+        )
+        log.info(
+            'Number of knowledge components in payload: %d',
+            len(payload)
+        )
         requests.put(url, headers=headers, json=payload)

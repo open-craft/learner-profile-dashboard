@@ -51,6 +51,12 @@ a large text area for learners to enter their answers to these types of question
     - Default: `False`
     - When set to `True`, LPD will take this question into account when analyzing learners' answers to qualitative
       questions (for the purpose of driving content selection).
+- `split_answer`:
+    - Default: `False`
+    - Whether answers to this question consist of a comma-separated list of values
+      that should be stored as separate answers to facilitate certain post-processing steps after export.
+    - When set to `True`, LPD will split answers to this question at commas
+      and store reach resulting answer component as a separate answer.
 
 ### Quantitative Questions
 
@@ -128,6 +134,15 @@ depends on the type of quantitative question that it is associated with.
     - Default: `False`
     - When set to `True`, LPD will send answers to this answer option to the Adaptive Engine (for the purpose of driving
       content selection). Note that the answer option also needs to be associated with a *knowledge component* for this to work.
+- `fallback_option`:
+    - Default: `False`
+    - Whether this is a catch-all option (such as "Don't know", or "Other:") that learners would choose
+      if none of the other options apply to them.
+    - When set to `True`, LPD will display this option below regular options
+      (i.e., options that have `fallback_option` set to `False`), in reverse alphabetical order.
+      Note that the LPD's behavior regarding fallback options is the same
+      regardless of whether a quantitative question has been configured
+      to display answer options in random order or not.
 
 ## Knowledge Components
 

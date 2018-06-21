@@ -151,6 +151,11 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'lpd.client': {
+            'handlers': ['file_debug_log'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
         'lpd.tests': {
             'handlers': ['file_test_log'],
             'level': 'DEBUG',

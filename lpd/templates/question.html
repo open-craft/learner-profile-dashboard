@@ -11,7 +11,7 @@
   </p>
 
   {% if question.framing_text %}
-    <p class="question-framing">{{ question.framing_text }}</p>
+    <p class="question-framing">{{ question.framing_text|safe }}</p>
   {% endif %}
 
   {% if question.type == 'essay' %}

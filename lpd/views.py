@@ -4,6 +4,8 @@ Views for Learner Profile Dashboard
 
 import json
 import logging
+import pprint
+import traceback
 
 from django.http import JsonResponse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -76,40 +78,53 @@ class LPDSubmitView(View):
         qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
         quantitative_answers = json.loads(request.POST.get('quantitative_answers'))
 
-        log.info('Attempting to update answers for user %s', user)
-        log.info('Request data (qualitative answers): %s', qualitative_answers)
-        log.info('Request data (quantitative answers): %s', quantitative_answers)
+        log.info('Attempting to update answers for user %s.', user)
+        log.info('Request data (qualitative answers):\n%s', pprint.pformat(qualitative_answers))
+        log.info('Request data (quantitative answers):\n%s', pprint.pformat(quantitative_answers))
 
         # Process answer data
         try:
             group_scores = self._process_qualitative_answers(user, qualitative_answers)
             answer_scores = self._process_quantitative_answers(user, quantitative_answers)
-        except Exception as e:  # pylint: disable=broad-except
-            log.error('The following exception occurred when trying to process answers for user %s: %s', user, e)
+        except Exception:  # pylint: disable=broad-except
+            log.error(
+                'The following exception occurred when trying to process answers for user %s:\n%s',
+                user,
+                traceback.format_exc()
+            )
             return JsonResponse({'message': 'Could not update learner answers.'}, status=500)
         else:
-            log.info('Answers successfully updated for user %s', user)
+            log.info('Answers successfully updated for user %s.', user)
 
         # Send learner data to adaptive engine
         scores = group_scores + answer_scores
         if scores:
             try:
                 AdaptiveEngineAPIClient.send_learner_data(user, scores)
-            except ConnectionError as e:
-                log.error('The following exception occurred when trying to transmit scores for user %s: %s', user, e)
+            except ConnectionError:
+                log.error(
+                    'The following exception occurred when trying to transmit scores for user %s:\n%s',
+                    user,
+                    traceback.format_exc()
+                )
                 return JsonResponse({'message': 'Could not transmit scores to adaptive engine.'}, status=500)
             else:
-                log.info('Scores successfully transmitted to adaptive engine for user %s', user)
+                log.info('Scores successfully transmitted to adaptive engine for user %s.', user)
 
         # Update submission data
         section_id = request.POST.get('section_id')
         try:
             last_update = self._process_submission(user, section_id)
-        except Section.DoesNotExist as e:
-            log.error('The following exception occurred when trying to update submission data for user %s: %s', user, e)
+        except Section.DoesNotExist:
+            log.error(
+                'The following exception occurred when trying to update submission data for user %s:\n%s',
+                user,
+                traceback.format_exc()
+            )
             return JsonResponse({'message': 'Could not update submission data.'}, status=500)
         else:
-            log.info('Submission data successfully updated for user %s and section %s', user, section_id)
+            log.info('Submission data successfully updated for user %s and section %s.', user, section_id)
+            log.info('Date and time of latest submission: %s.', last_update)
 
         return JsonResponse({
             'message': 'Learner answers updated successfully.',
@@ -137,7 +152,7 @@ class LPDSubmitView(View):
             text = qualitative_answer.get('answer_text')
 
             log.info(
-                'Creating or updating answer from user %s for question %s. New text: %s',
+                'Creating or updating answer from user %s for %s. New text: %s',
                 user, question, text
             )
 
@@ -146,7 +161,11 @@ class LPDSubmitView(View):
 
             answer_components = question.get_answer_components(text)
 
-            log.info('Answer components to store as separate answers: %s', answer_components)
+            log.info(
+                'Answer components to store as separate answers (%d):\n%s',
+                len(answer_components),
+                pprint.pformat(answer_components)
+            )
 
             for answer_component in answer_components:
                 QualitativeAnswer.objects.create(
@@ -194,19 +213,19 @@ class LPDSubmitView(View):
             raw_value = quantitative_answer.get('answer_option_value')
             custom_input = quantitative_answer.get('answer_option_custom_input')
 
-            # Get value to store and compute score from
-            value = QuantitativeQuestion.get_value(question_type, raw_value)
+            # Get answer value to store and compute score from
+            answer_value = QuantitativeQuestion.get_answer_value(question_type, raw_value)
 
-            if value is None:
+            if answer_value is None:
                 continue
 
-            # We have a meaningful `value`, so fetch answer option that answer belongs to from DB
+            # We have a meaningful `answer_value`, so fetch answer option that answer belongs to from DB
             answer_option = AnswerOption.objects.get(id=answer_option_id)
 
             # Create or update answer for answer option
-            cls._update_or_create_answer(user, answer_option, value, custom_input)
+            cls._update_or_create_answer(user, answer_option, answer_value, custom_input)
             # Create or update score for adaptive engine
-            score = cls._update_or_create_score(user, question_type, answer_option, value)
+            score = cls._update_or_create_score(user, question_type, answer_option, answer_value)
 
             if score is not None:
                 scores.append(score)
@@ -214,21 +233,23 @@ class LPDSubmitView(View):
         return scores
 
     @classmethod
-    def _update_or_create_answer(cls, user, answer_option, value, custom_input):
+    def _update_or_create_answer(cls, user, answer_option, answer_value, custom_input):
         """
         Create or update `QuantitativeAnswer` for `user` and `answer_option`,
-        taking into account `value` and `custom_input`.
+        taking into account `answer_value` and `custom_input`.
 
         Note that this method should only be called
-        if `value` is meaningful (i.e., if it is not `None`).
+        if `answer_value` is meaningful (i.e., if it is not `None`).
         """
-        answer_data = dict(value=value)
+        answer_data = dict(value=answer_value)
         if custom_input is not None:
             answer_data['custom_input'] = custom_input
 
         log.info(
-            'Creating or updating answer from user %s for answer option %s. New data: %s',
-            user, answer_option, answer_data
+            'Creating or updating answer from user %s for %s. New data:\n%s',
+            user,
+            answer_option,
+            pprint.pformat(answer_data)
         )
 
         QuantitativeAnswer.objects.update_or_create(
@@ -238,19 +259,30 @@ class LPDSubmitView(View):
         )
 
     @classmethod
-    def _update_or_create_score(cls, user, question_type, answer_option, value):
+    def _update_or_create_score(cls, user, question_type, answer_option, answer_value):
         """
         Create or update `Score` for `user` and knowledge component associated with `answer_option`, and return it.
 
         Note that this method should only be called
-        if `value` is meaningful (i.e., if it is not `None`).
+        if `answer_value` is meaningful (i.e., if it is not `None`).
         """
         score = None
         if answer_option.influences_recommendations:
             knowledge_component = answer_option.knowledge_component
             if knowledge_component:
-                score_value = QuantitativeQuestion.get_score(question_type, value)
-                score_data = dict(value=score_value)
+                score = QuantitativeQuestion.get_score(question_type, answer_value)
+                score_data = dict(value=score)
+
+                log.info(
+                    'Creating or updating score for user %s for %s.\n'
+                    '- Answer value: %s.\n'
+                    '- Score: %s',
+                    user,
+                    answer_option,
+                    answer_value,
+                    score
+                )
+
                 score, _ = Score.objects.update_or_create(
                     knowledge_component=knowledge_component,
                     learner=user,

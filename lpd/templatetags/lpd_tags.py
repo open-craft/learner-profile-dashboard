@@ -3,6 +3,7 @@ Custom template tags for Learner Profile Dashboard
 """
 
 from django import template
+from django.utils.timezone import localtime
 
 from lpd.models import Submission
 
@@ -17,7 +18,7 @@ def get_last_update(section, learner):
     last_update = Submission.get_last_update(section, learner)
     if last_update is not None:
         return 'Submitted on {last_update}'.format(
-            last_update=last_update.strftime('%m/%d/%Y at %I:%M %p')
+            last_update=localtime(last_update).strftime('%m/%d/%Y at %I:%M %p')
         )
     return last_update
 

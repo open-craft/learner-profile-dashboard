@@ -34,13 +34,7 @@
       Submit your answers
     </button>
     {% get_last_update section learner as last_update %}
-    <span class="submission-info">
-      {% if last_update %}
-        {{ last_update }}
-      {% else %}
-        Not yet submitted
-      {% endif %}
-    </span>
+    <span class="submission-info" data-last-update="{{ last_update }}"></span>
   </div>
 
 </form>

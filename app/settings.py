@@ -47,7 +47,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'app.middleware.timezone_middleware.TimezoneMiddleware',
 )
 
 ROOT_URLCONF = 'app.urls'

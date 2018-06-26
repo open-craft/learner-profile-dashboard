@@ -124,7 +124,6 @@ class LPDSubmitView(View):
             return JsonResponse({'message': 'Could not update submission data.'}, status=500)
         else:
             log.info('Submission data successfully updated for user %s and section %s.', user, section_id)
-            log.info('Date and time of latest submission: %s.', last_update)
 
         return JsonResponse({
             'message': 'Learner answers updated successfully.',
@@ -299,13 +298,14 @@ class LPDSubmitView(View):
         and return it.
         """
         section = Section.objects.get(id=section_id)
-        Submission.objects.update_or_create(
+        submission, _ = Submission.objects.update_or_create(
             section=section,
             learner=user,
             defaults={
                 'updated': timezone.now()
             }
         )
+        log.info('Date and time of latest submission: %s.', submission.updated.strftime('%m/%d/%Y at %I:%M %p (UTC)'))
         return get_last_update(section, user)
 
 

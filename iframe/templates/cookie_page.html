@@ -1,26 +1,20 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
-   "http://www.w3.org/TR/html4/strict.dtd">
-<html>
-    <head>
-        <title>Creating Cookie</title>
-    </head>
-    <body>
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js" type="text/javascript"></script>
-        <script type="text/javascript">
-            $(document).ready(function() {
+{% extends "base.html" %}
 
-                var name = 'safari.cookie.fix'
-                var value = 'fixed'
-                var minutes = 10
+{% block content %}
+<script type="text/javascript">
+  $(document).ready(function() {
 
-                var date = new Date();
-                date.setTime(date.getTime()+(minutes*60*1000));
-                var expires = "; expires="+date.toGMTString();
+      var minutes = 10,
+          expiryDate = new Date();
 
-                document.cookie = name+"="+value+expires+"; path=/";
+      expiryDate.setTime(expiryDate.getTime() + (minutes * 60 * 1000));
 
-                window.close();
-            });
-        </script>
-    </body>
-</html>
+      document.cookie = "safari.cookie.fix=applied; path=/; expires=" + expiryDate.toUTCString();
+
+      window.close();
+  });
+</script>
+<p>
+  Setting cookie ...
+</p>
+{% endblock content %}

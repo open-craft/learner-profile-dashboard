@@ -1,37 +1,40 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
-   "http://www.w3.org/TR/html4/strict.dtd">
-<html>
-    <head>
-        <title>Oops</title>
-    </head>
-    <body>
+{% extends "base.html" %}
 
-        <p>
-            Hey, we noticed that you use Safari.
-            Unfortunately Safari has conservative cookie policy so we cannot start your session.
-            So to solve this problem we suggest to use other browser for example
-            <a target="_blank" href="http://www.mozilla.org/firefox/new/">Firefox</a>
-             or
-            <a target="_blank" href="www.google.com/chrome">Chrome</a>.
-            Or you can press following button to create your session and then refresh this page.
-        </p>
+{% block content %}
+  <p>
+    Hey! We noticed that you are using Safari.
 
-        <div id="cookie_link" style="display:block">
-            <a target=_blank href="javascript:popup();">Please Open This</a><br>
-        </div>
-        <div id="refresh_link" style="display:none">
-            <a target=_blank href="javascript:refresh();">Refresh</a>
-        </div>
+    Unfortunately Safari has a conservative cookie policy that prevents us from loading some content.
+  </p>
 
-        <script type="text/javascript">
-            var popup = function() {
-                window.open("{% url 'iframe_fix' %}?cookie_fix=1", "mywindow", "location=1,status=1,scrollbars=0,width=10,height=10");
-                document.getElementById('cookie_link').style.display = 'none';
-                document.getElementById('refresh_link').style.display = 'block';
-            }
-            var refresh = function() {
-                window.location.replace(window.location.href+"&cookie_fix=1")
-            }
-        </script>
-    </body>
-</html>
+  <p>
+    To solve this problem, we suggest that you switch to another browser, for example
+    <a target="_blank" href="https://www.mozilla.org/en-US/firefox/new/">Firefox</a>
+    or
+    <a target="_blank" href="https://www.google.com/chrome/">Chrome</a>.
+  </p>
+
+  <p>
+    Alternatively, you can click the following button to enable loading of the missing content, and then refresh this page.
+  </p>
+
+  <div id="cookie_link" style="display:block">
+    <a target=_blank href="javascript:popup();">Enable loading of missing content</a><br>
+  </div>
+
+  <div id="refresh_message" style="display:none">
+    <p>
+      Thanks! You can now proceed with refreshing this page.
+    </p>
+  </div>
+
+  <script type="text/javascript">
+    var popup = function() {
+        var helperWindow = window.open("{% url 'iframe_fix' %}?cookie_fix=1", "Setting cookie", "location=1,status=1,scrollbars=0,width=50,height=50");
+        helperWindow.onunload = function(e) {
+            document.getElementById('cookie_link').style.display = 'none';
+            document.getElementById('refresh_message').style.display = 'block';
+        };
+    }
+  </script>
+{% endblock content %}

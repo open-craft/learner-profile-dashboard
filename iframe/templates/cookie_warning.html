@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+    <head>
+        <title>Oops</title>
+    </head>
+    <body>
+
+        <p>
+            Hey, we noticed that you use Safari.
+            Unfortunately Safari has conservative cookie policy so we cannot start your session.
+            So to solve this problem we suggest to use other browser for example
+            <a target="_blank" href="http://www.mozilla.org/firefox/new/">Firefox</a>
+             or
+            <a target="_blank" href="www.google.com/chrome">Chrome</a>.
+            Or you can press following button to create your session and then refresh this page.
+        </p>
+
+        <div id="cookie_link" style="display:block">
+            <a target=_blank href="javascript:popup();">Please Open This</a><br>
+        </div>
+        <div id="refresh_link" style="display:none">
+            <a target=_blank href="javascript:refresh();">Refresh</a>
+        </div>
+
+        <script type="text/javascript">
+            var popup = function() {
+                window.open("{% url 'iframe_fix' %}?cookie_fix=1", "mywindow", "location=1,status=1,scrollbars=0,width=10,height=10");
+                document.getElementById('cookie_link').style.display = 'none';
+                document.getElementById('refresh_link').style.display = 'block';
+            }
+            var refresh = function() {
+                window.location.replace(window.location.href+"&cookie_fix=1")
+            }
+        </script>
+    </body>
+</html>

@@ -53,6 +53,18 @@ $(document).ready(function() {
 
     };
 
+    var initializeSubmissionInfo = function() {
+        $('.submission-info').each(function(i, submissionInfo) {
+            var $submissionInfo = $(submissionInfo),
+                lastUpdate = $submissionInfo.data('last-update'),
+                $sectionForm = $submissionInfo.parents('form'),
+                data = {
+                    'last_update': lastUpdate
+                };
+            updateSubmissionInfo($sectionForm, data);
+        });
+    };
+
     var uncheckSameValueRanks = function(rank) {
         var $rank = $(rank),
             rankValue = $rank.val(),
@@ -171,7 +183,20 @@ $(document).ready(function() {
     var updateSubmissionInfo = function($sectionForm, data) {
         var $submissionInfo = $sectionForm.find('.submission-info'),
             lastUpdate = data.last_update;
-        $submissionInfo.text(lastUpdate);
+        $submissionInfo.text(formatLastUpdate(lastUpdate));
+    };
+
+    var formatLastUpdate = function(lastUpdate) {
+        if (lastUpdate === 'None') {
+            return 'Not yet submitted';
+        }
+        // Note that `moment.unix` operates in local mode by default,
+        // i.e., it will automatically match a learner's local time
+        // when formatting the timestamp that we pass to it.
+        // Cf. https://momentjs.com/docs/#/displaying/unix-timestamp/
+        var date = moment.unix(lastUpdate).format('MM/DD/YYYY'),
+            time = moment.unix(lastUpdate).format('hh:mm a');
+        return 'Submitted on ' + date + ' at ' + time;
     };
 
 
@@ -248,6 +273,7 @@ $(document).ready(function() {
 
         renderChecked();
         updateOptionGroups();
+        initializeSubmissionInfo();
     };
 
     init();

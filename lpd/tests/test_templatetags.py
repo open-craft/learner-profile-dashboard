@@ -29,8 +29,8 @@ class TemplateTagsTests(TestCase):
         Test that `get_last_update` behaves correctly for existing and non-existing submissions.
 
         - If submission does not exist, `get_last_update` should return `None` (and not error out).
-        - If submission exists, `get_last_update` should return information
-          derived from current value of `updated` field of submission.
+        - If submission exists, `get_last_update` should return timestamp corresponding to
+          current value of `updated` field of submission.
         """
         # Submission does not exist
         section = SectionFactory()
@@ -42,7 +42,7 @@ class TemplateTagsTests(TestCase):
             updated = utc.localize(freezed_time())
             SubmissionFactory(section=section, learner=self.learner, updated=updated)
             last_update = get_last_update(section, self.learner)
-            expected_last_update = 'Submitted on 01/17/2017 at 11:25 AM'
+            expected_last_update = 1484652300
             self.assertEqual(last_update, expected_last_update)
 
     def test_get_answer(self):

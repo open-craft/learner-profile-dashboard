@@ -33,10 +33,11 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'app',
-    'lpd',
     'django_lti_tool_provider',
     'ordered_model',
+    'app',
+    'iframe',
+    'lpd',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -47,6 +48,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'iframe.middleware.iframe_middleware.IFrameFixMiddleware',
 )
 
 ROOT_URLCONF = 'app.urls'

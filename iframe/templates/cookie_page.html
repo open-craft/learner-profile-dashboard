@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script type="text/javascript">
+  $(document).ready(function() {
+
+      var minutes = 10,
+          expiryDate = new Date();
+
+      expiryDate.setTime(expiryDate.getTime() + (minutes * 60 * 1000));
+
+      document.cookie = "safari.cookie.fix=applied; path=/; expires=" + expiryDate.toUTCString();
+
+      window.close();
+  });
+</script>
+<p>
+  Setting cookie ...
+</p>
+{% endblock content %}

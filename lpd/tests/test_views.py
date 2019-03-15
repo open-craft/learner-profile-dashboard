@@ -4,7 +4,7 @@ View tests for Learner Profile Dashboard
 
 import json
 
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.db import IntegrityError
 from django.test import TestCase
 from mock import call, MagicMock, patch

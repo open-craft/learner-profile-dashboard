@@ -125,7 +125,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='qualitativeanswer',
             name='question',
-            field=models.ForeignKey(related_name='learner_answers', to='lpd.QualitativeQuestion'),
+            field=models.ForeignKey(related_name='learner_answers', to='lpd.QualitativeQuestion', on_delete=models.CASCADE),
         ),
         migrations.AlterField(
             model_name='qualitativequestion',
@@ -135,7 +135,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='quantitativeanswer',
             name='answer_option',
-            field=models.ForeignKey(related_name='learner_answers', to='lpd.AnswerOption'),
+            field=models.ForeignKey(related_name='learner_answers', to='lpd.AnswerOption', on_delete=models.CASCADE),
         ),
         migrations.AlterField(
             model_name='rankingquestion',
@@ -150,6 +150,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='section',
             name='lpd',
-            field=models.ForeignKey(related_name='sections', to='lpd.LearnerProfileDashboard'),
+            field=models.ForeignKey(related_name='sections', to='lpd.LearnerProfileDashboard', on_delete=models.CASCADE),
         ),
     ]

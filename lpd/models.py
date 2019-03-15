@@ -55,6 +55,7 @@ class Section(OrderedModel):
     lpd = models.ForeignKey(
         'LearnerProfileDashboard',
         related_name='sections',
+        on_delete=models.CASCADE,
     )
     title = models.CharField(
         max_length=120,
@@ -97,7 +98,10 @@ class Question(models.Model):
     """
     Abstract base class for models representing learner profile question.
     """
-    section = models.ForeignKey('Section')
+    section = models.ForeignKey(
+        'Section',
+        on_delete=models.CASCADE,
+    )
     number = models.PositiveIntegerField(
         default=1,
         help_text='Number of this question relative to parent section.'
@@ -478,7 +482,10 @@ class AnswerOption(models.Model):
     Represents a specific answer option for a quantitative learner profile question.
     """
     # Use generic relation to connect this model to QuantitativeQuestion (which is abstract).
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+    )
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
 
@@ -488,6 +495,7 @@ class AnswerOption(models.Model):
         null=True,
         help_text='Knowledge component that this answer option is associated with.',
         related_name='answer_option',
+        on_delete=models.CASCADE,
     )
     option_text = models.TextField(
         help_text='Text to display for this answer option.',
@@ -546,7 +554,10 @@ class Answer(models.Model):
     """
     Abstract base class for models representing learner answers to LPD questions.
     """
-    learner = models.ForeignKey(settings.AUTH_USER_MODEL)
+    learner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
 
     class Meta:
         abstract = True
@@ -559,6 +570,7 @@ class QualitativeAnswer(Answer):
     question = models.ForeignKey(
         'QualitativeQuestion',
         related_name='learner_answers',
+        on_delete=models.CASCADE,
     )
     text = models.TextField(
         help_text='Answer that the learner provided to the associated question.',
@@ -575,6 +587,7 @@ class QuantitativeAnswer(Answer):
     answer_option = models.ForeignKey(
         'AnswerOption',
         related_name='learner_answers',
+        on_delete=models.CASCADE,
     )
     value = models.PositiveIntegerField(
         help_text=(
@@ -627,8 +640,14 @@ class Score(models.Model):
     For a knowledge component that is associated with an answer option,
     the score represents the transformed value of the learner's answer to that answer option.
     """
-    knowledge_component = models.ForeignKey('KnowledgeComponent')
-    learner = models.ForeignKey(settings.AUTH_USER_MODEL)
+    knowledge_component = models.ForeignKey(
+        'KnowledgeComponent',
+        on_delete=models.CASCADE,
+    )
+    learner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
     value = models.FloatField(
         help_text="The learner's score for the associated knowledge component.",
     )
@@ -641,8 +660,14 @@ class Submission(models.Model):
     """
     Tracks submission data for a specific section and learner.
     """
-    section = models.ForeignKey('Section')
-    learner = models.ForeignKey(settings.AUTH_USER_MODEL)
+    section = models.ForeignKey(
+        'Section',
+        on_delete=models.CASCADE,
+    )
+    learner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
     updated = models.DateTimeField(
         blank=True,
         null=True,

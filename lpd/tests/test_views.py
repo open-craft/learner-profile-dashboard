@@ -746,4 +746,4 @@ class UpdateLearnerProfileDashboardViewTests(UserSetupMixin, TestCase):
         response = self.client.post(self.edit_url, post_data)
         self.assertRedirects(response, self.view_url)
         response = self.client.get(self.view_url)
-        self.assertEquals(response.context['object'].name, post_data['name'])
+        self.assertEqual(response.context['object'].name, post_data['name'])

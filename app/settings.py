@@ -106,44 +106,79 @@ TEMPLATES = [
 
 LOGIN_URL = 'admin:login'
 
+# Logging
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'timestamp_formatter': {
+            'format': '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
+        }
+    },
     'handlers': {
-        'file_debug_log': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'debug.log'),
+        'stream_info_log': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'timestamp_formatter',
         },
-        'file_test_log': {
+        'file_debug_log_default': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
+            'formatter': 'timestamp_formatter',
+            'filename': os.path.join(BASE_DIR, 'default.log'),
+        },
+        'file_debug_log_security': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'formatter': 'timestamp_formatter',
+            'filename': os.path.join(BASE_DIR, 'security.log'),
+        },
+        'file_debug_log_test': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'formatter': 'timestamp_formatter',
             'filename': os.path.join(BASE_DIR, 'test.log'),
         },
     },
     'loggers': {
-        'django': {
-            'handlers': ['file_debug_log'],
+        'django.request': {
+            'handlers': ['stream_info_log'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['stream_info_log'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.template': {
+            'handlers': ['stream_info_log'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['file_debug_log_security'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'django_lti_tool_provider.views': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['file_debug_log_default'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'lpd.views': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['file_debug_log_default'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'lpd.client': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['file_debug_log_default'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'lpd.tests': {
-            'handlers': ['file_test_log'],
+            'handlers': ['file_debug_log_test'],
             'level': 'DEBUG',
             'propagate': True,
         },

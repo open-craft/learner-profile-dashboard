@@ -7,7 +7,8 @@ URLs for Learner Profile Dashboard
 from django.conf.urls import url
 from django.contrib.auth.decorators import login_required
 
-from . import views
+from lpd import views
+
 
 app_name = 'lpd'
 

@@ -138,7 +138,7 @@ LOGGING = {
         },
     },
     'loggers': {
-        'django.request': {
+        'django': {
             'handlers': ['file_debug_log'],
             'level': 'DEBUG',
             'propagate': True,

@@ -40,7 +40,7 @@ INSTALLED_APPS = (
     'lpd',
 )
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -48,7 +48,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'iframe.middleware.iframe_middleware.IFrameFixMiddleware',
-)
+]
 
 ROOT_URLCONF = 'app.urls'
 

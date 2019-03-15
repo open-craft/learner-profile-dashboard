@@ -8,11 +8,11 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase
 
-from .. import ApplicationHookManager
+from lpd.auth import ApplicationHookManager
 
 
 @ddt.ddt
-@mock.patch('app.User.objects')
+@mock.patch('lpd.auth.User.objects')
 class ApplicationHookManagerTests(SimpleTestCase):
     """Tests for ApplicationHookManager."""
     def setUp(self):
@@ -47,7 +47,7 @@ class ApplicationHookManagerTests(SimpleTestCase):
         request = mock.Mock()
         expected_uname, expected_password = self._get_uname_and_password(user_id)
 
-        with mock.patch('app.authenticate') as authenticate_mock, mock.patch('app.login') as login_mock:
+        with mock.patch('lpd.auth.authenticate') as authenticate_mock, mock.patch('lpd.auth.login') as login_mock:
             auth_result = mock.Mock() if auth_result else None
             authenticate_mock.return_value = auth_result
             self.manager.authentication_hook(request, user_id, 'irrelevant', email)
@@ -69,7 +69,7 @@ class ApplicationHookManagerTests(SimpleTestCase):
         expected_uname, expected_password = self._get_uname_and_password(user_id)
         expected_email = email = email if email else user_id+'@localhost'
 
-        with mock.patch('app.authenticate') as authenticate_mock, mock.patch('app.login') as login_mock:
+        with mock.patch('lpd.auth.authenticate') as authenticate_mock, mock.patch('lpd.auth.login') as login_mock:
             auth_result = mock.Mock() if auth_result else None
             authenticate_mock.return_value = auth_result
             self.manager.authentication_hook(request, user_id, 'irrelevant', email)

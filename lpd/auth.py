@@ -91,8 +91,8 @@ class ApplicationHookManager(AbstractApplicationHookManager):
                 # as password and uname are stable (i.e. not change for the same user).
                 logger.info("IntegrityError creating user - assuming result of race condition: %s", e.message)
 
-        authenticated = authenticate(request, username=uname, password=password)
-        login(request, authenticated)
+        authenticated_user = authenticate(request, username=uname, password=password)
+        login(request, authenticated_user)
 
     def vary_by_key(self, lti_data):
         return ":".join(str(lti_data.get(k, '')) for k in self.LTI_KEYS)

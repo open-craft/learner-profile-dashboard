@@ -52,7 +52,7 @@ class ApplicationHookManagerTests(SimpleTestCase):
             authenticate_mock.return_value = auth_result
             self.manager.authentication_hook(request, user_id, 'irrelevant', email)
 
-            authenticate_mock.assert_called_once_with(username=expected_uname, password=expected_password)
+            authenticate_mock.assert_called_once_with(request, username=expected_uname, password=expected_password)
             login_mock.assert_called_once_with(request, auth_result)
 
     @ddt.unpack
@@ -77,5 +77,5 @@ class ApplicationHookManagerTests(SimpleTestCase):
             user_objects_manager.create_user.assert_called_once_with(
                 username=expected_uname, email=expected_email, password=expected_password
             )
-            authenticate_mock.assert_called_once_with(username=expected_uname, password=expected_password)
+            authenticate_mock.assert_called_once_with(request, username=expected_uname, password=expected_password)
             login_mock.assert_called_once_with(request, auth_result)

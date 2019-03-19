@@ -2,7 +2,7 @@ Django==1.11.20
 django-ordered-model==1.4.3
 Markdown==2.6.11
 nltk==3.2.5
-requests==2.11.1
+requests==2.21.0
 scikit-learn==0.19.1
 scipy>=0.14.0
 -r _base.txt

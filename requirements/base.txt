@@ -1,5 +1,5 @@
 Django==1.11.20
-django-ordered-model==1.4.3
+django-ordered-model==2.1.0
 Markdown==2.6.11
 nltk==3.2.5
 requests==2.21.0

@@ -5,5 +5,4 @@ freezegun==0.3.10
 mock==1.0.1
 prospector==0.12.7
 pylint-django==0.11.1
-pytz==2018.3
 -r _test.txt

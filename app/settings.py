@@ -2,10 +2,10 @@
 Django settings for lti_lpd project.
 
 For more information on this file, see
-https://docs.djangoproject.com/en/1.8/topics/settings/
+https://docs.djangoproject.com/en/1.11/topics/settings/
 
 For the full list of settings and their values, see
-https://docs.djangoproject.com/en/1.8/ref/settings/
+https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -17,7 +17,7 @@ from sklearn.externals import joblib
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
+# See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -40,34 +40,17 @@ INSTALLED_APPS = (
     'lpd',
 )
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.security.SecurityMiddleware',
     'iframe.middleware.iframe_middleware.IFrameFixMiddleware',
-)
+]
 
 ROOT_URLCONF = 'app.urls'
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
 
 WSGI_APPLICATION = 'app.wsgi.application'
 
@@ -75,7 +58,7 @@ WSGI_APPLICATION = 'app.wsgi.application'
 SESSION_COOKIE_NAME = 'lti-lpd'
 
 # Database
-# https://docs.djangoproject.com/en/1.8/ref/settings/#databases
+# https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
 # Note: Override with a real database (e.g. mysql) in local_settings.py
 DATABASES = {
@@ -86,7 +69,7 @@ DATABASES = {
 }
 
 # Internationalization
-# https://docs.djangoproject.com/en/1.8/topics/i18n/
+# https://docs.djangoproject.com/en/1.11/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
@@ -95,7 +78,7 @@ USE_L10N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/1.8/howto/static-files/
+# https://docs.djangoproject.com/en/1.11/howto/static-files/
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -108,13 +91,14 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.contrib.auth.context_processors.auth',
-                'django.core.context_processors.debug',
-                'django.core.context_processors.i18n',
-                'django.core.context_processors.media',
-                'django.core.context_processors.static',
-                'django.core.context_processors.tz',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.i18n',
+                'django.template.context_processors.media',
+                'django.template.context_processors.static',
+                'django.template.context_processors.csrf',
+                'django.template.context_processors.tz',
+                'django.template.context_processors.request',
                 'django.contrib.messages.context_processors.messages',
-                'django.core.context_processors.request',
             ],
         },
     },
@@ -122,44 +106,79 @@ TEMPLATES = [
 
 LOGIN_URL = 'admin:login'
 
+# Logging
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'timestamp_formatter': {
+            'format': '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
+        }
+    },
     'handlers': {
-        'file_debug_log': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'debug.log'),
+        'stream_info_log': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'timestamp_formatter',
         },
-        'file_test_log': {
+        'file_debug_log_default': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
+            'formatter': 'timestamp_formatter',
+            'filename': os.path.join(BASE_DIR, 'default.log'),
+        },
+        'file_debug_log_security': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'formatter': 'timestamp_formatter',
+            'filename': os.path.join(BASE_DIR, 'security.log'),
+        },
+        'file_debug_log_test': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'formatter': 'timestamp_formatter',
             'filename': os.path.join(BASE_DIR, 'test.log'),
         },
     },
     'loggers': {
         'django.request': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['stream_info_log'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['stream_info_log'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.template': {
+            'handlers': ['stream_info_log'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['file_debug_log_security'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'django_lti_tool_provider.views': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['file_debug_log_default'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'lpd.views': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['file_debug_log_default'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'lpd.client': {
-            'handlers': ['file_debug_log'],
+            'handlers': ['file_debug_log_default'],
             'level': 'DEBUG',
             'propagate': True,
         },
         'lpd.tests': {
-            'handlers': ['file_test_log'],
+            'handlers': ['file_debug_log_test'],
             'level': 'DEBUG',
             'propagate': True,
         },

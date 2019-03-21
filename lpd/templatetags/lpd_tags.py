@@ -11,7 +11,7 @@ from lpd.models import Submission
 register = template.Library()
 
 
-@register.assignment_tag
+@register.simple_tag
 def get_last_update(section, learner):
     """
     Return timestamp corresponding to date and time at which `learner` last submitted `section`.
@@ -30,7 +30,7 @@ def get_answer(question, learner):
     return question.get_answer(learner)
 
 
-@register.assignment_tag
+@register.simple_tag
 def get_data(answer_option, learner):
     """
     Return value that `learner` chose for `answer_option`.

@@ -69,7 +69,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('text', models.TextField(help_text=b'Answer that the learner provided to the associated question.')),
-                ('learner', models.ForeignKey(to=settings.AUTH_USER_MODEL)),
+                ('learner', models.ForeignKey(to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE)),
             ],
             options={
                 'abstract': False,
@@ -95,8 +95,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('value', models.PositiveIntegerField(help_text=b'The value that the learner chose for the associated question.')),
-                ('answer_option', models.ForeignKey(to='lpd.AnswerOption')),
-                ('learner', models.ForeignKey(to=settings.AUTH_USER_MODEL)),
+                ('answer_option', models.ForeignKey(to='lpd.AnswerOption', on_delete=models.CASCADE)),
+                ('learner', models.ForeignKey(to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE)),
             ],
             options={
                 'abstract': False,
@@ -122,8 +122,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('value', models.FloatField(help_text=b"The learner's score for the associated knowledge component.")),
-                ('knowledge_component', models.OneToOneField(to='lpd.KnowledgeComponent')),
-                ('learner', models.OneToOneField(to=settings.AUTH_USER_MODEL)),
+                ('knowledge_component', models.OneToOneField(to='lpd.KnowledgeComponent', on_delete=models.CASCADE)),
+                ('learner', models.OneToOneField(to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE)),
             ],
         ),
         migrations.CreateModel(
@@ -132,7 +132,7 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('order', models.PositiveIntegerField(editable=False, db_index=True)),
                 ('title', models.CharField(help_text=b'Text to display above questions belonging to this section (optional).', max_length=120, null=True, blank=True)),
-                ('lpd', models.ForeignKey(to='lpd.LearnerProfileDashboard')),
+                ('lpd', models.ForeignKey(to='lpd.LearnerProfileDashboard', on_delete=models.CASCADE)),
             ],
             options={
                 'ordering': ('order',),
@@ -142,36 +142,36 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='rankingquestion',
             name='section',
-            field=models.ForeignKey(to='lpd.Section'),
+            field=models.ForeignKey(to='lpd.Section', on_delete=models.CASCADE),
         ),
         migrations.AddField(
             model_name='qualitativequestion',
             name='section',
-            field=models.ForeignKey(to='lpd.Section'),
+            field=models.ForeignKey(to='lpd.Section', on_delete=models.CASCADE),
         ),
         migrations.AddField(
             model_name='qualitativeanswer',
             name='question',
-            field=models.ForeignKey(to='lpd.QualitativeQuestion'),
+            field=models.ForeignKey(to='lpd.QualitativeQuestion', on_delete=models.CASCADE),
         ),
         migrations.AddField(
             model_name='multiplechoicequestion',
             name='section',
-            field=models.ForeignKey(to='lpd.Section'),
+            field=models.ForeignKey(to='lpd.Section', on_delete=models.CASCADE),
         ),
         migrations.AddField(
             model_name='likertscalequestion',
             name='section',
-            field=models.ForeignKey(to='lpd.Section'),
+            field=models.ForeignKey(to='lpd.Section', on_delete=models.CASCADE),
         ),
         migrations.AddField(
             model_name='answeroption',
             name='knowledge_component',
-            field=models.OneToOneField(null=True, blank=True, to='lpd.KnowledgeComponent', help_text=b'Knowledge component that this answer option is associated with.'),
+            field=models.OneToOneField(null=True, blank=True, to='lpd.KnowledgeComponent', help_text=b'Knowledge component that this answer option is associated with.', on_delete=models.CASCADE),
         ),
         migrations.AddField(
             model_name='answeroption',
             name='question_type',
-            field=models.ForeignKey(to='contenttypes.ContentType'),
+            field=models.ForeignKey(to='contenttypes.ContentType', on_delete=models.CASCADE),
         ),
     ]

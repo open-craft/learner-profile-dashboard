@@ -67,7 +67,7 @@ class LearnerProfileDashboardTests(TestCase):
         Test string representation of `LearnerProfileDashboard` model.
         """
         lpd = LearnerProfileDashboard(name='Empty LPD')
-        self.assertEquals(str(lpd), 'Empty LPD')
+        self.assertEqual(str(lpd), 'Empty LPD')
 
 
 class SectionTests(TestCase):
@@ -81,7 +81,7 @@ class SectionTests(TestCase):
         Test string representation of `Section` model.
         """
         section = SectionFactory(lpd=self.lpd, title='Basic information')
-        self.assertEquals(str(section), 'Section 1: Basic information')
+        self.assertEqual(str(section), 'Section 1: Basic information')
 
     def test_questions(self):
         """

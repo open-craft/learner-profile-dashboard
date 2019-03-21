@@ -18,8 +18,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('updated', models.DateTimeField(help_text=b'The date and time at which the learner associated with this submission last submitted the section associated with this submission.', null=True, blank=True)),
-                ('learner', models.ForeignKey(to=settings.AUTH_USER_MODEL)),
-                ('section', models.ForeignKey(to='lpd.Section')),
+                ('learner', models.ForeignKey(to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE)),
+                ('section', models.ForeignKey(to='lpd.Section', on_delete=models.CASCADE)),
             ],
         ),
     ]

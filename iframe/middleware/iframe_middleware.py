@@ -7,6 +7,7 @@ import logging
 
 from django.shortcuts import render_to_response
 from django.conf import settings
+from django.utils.deprecation import MiddlewareMixin
 
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ DEFAULT_P3P_POLICY = 'IDC DSP COR ADM DEVi TAIi PSA PSD IVAi IVDi CONi HIS OUR I
 P3P_POLICY = getattr(settings, 'P3P_POLICY', DEFAULT_P3P_POLICY)
 
 
-class IFrameFixMiddleware(object):
+class IFrameFixMiddleware(MiddlewareMixin):
     """
     Middleware for fixing iframe session termination in Safari.
     """

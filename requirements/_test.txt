@@ -1,2 +1,2 @@
 # pip dependencies missing from edxapp
-ddt==0.8.0
+ddt==1.2.1

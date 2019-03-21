@@ -4,7 +4,7 @@ View tests for Learner Profile Dashboard
 
 import json
 
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.db import IntegrityError
 from django.test import TestCase
 from mock import call, MagicMock, patch
@@ -746,4 +746,4 @@ class UpdateLearnerProfileDashboardViewTests(UserSetupMixin, TestCase):
         response = self.client.post(self.edit_url, post_data)
         self.assertRedirects(response, self.view_url)
         response = self.client.get(self.view_url)
-        self.assertEquals(response.context['object'].name, post_data['name'])
+        self.assertEqual(response.context['object'].name, post_data['name'])

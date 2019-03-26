@@ -64,7 +64,9 @@ class ApplicationHookManager(AbstractApplicationHookManager):
 
         This method is abstract in the parent class, so we need to implement it here.
         """
-        return reverse(settings.LTI_HOME_PAGE)
+        lpd_id = lti_data.get('custom_lpd_id')
+        redirect_url = reverse('lpd:view', kwargs=dict(pk=lpd_id))
+        return redirect_url
 
     def authentication_hook(self, request, user_id=None, username=None, email=None, extra_params=None):
         """

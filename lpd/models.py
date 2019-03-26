@@ -642,6 +642,7 @@ class Score(models.Model):
     """
     knowledge_component = models.ForeignKey(
         'KnowledgeComponent',
+        related_name='scores',
         on_delete=models.CASCADE,
     )
     learner = models.ForeignKey(
@@ -662,6 +663,7 @@ class Submission(models.Model):
     """
     section = models.ForeignKey(
         'Section',
+        related_name='submissions',
         on_delete=models.CASCADE,
     )
     learner = models.ForeignKey(

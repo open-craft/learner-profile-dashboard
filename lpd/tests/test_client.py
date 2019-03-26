@@ -34,20 +34,20 @@ class AdaptiveEngineAPIClientTests(UserSetupMixin, TestCase):
         """
         Test that `send_learner_data` sends correct payload to adaptive engine.
         """
-        self.user.username = username
-        self.user.save()
+        self.student_user.username = username
+        self.student_user.save()
 
         knowledge_component1 = KnowledgeComponentFactory(kc_id='kc_id_1')
         knowledge_component2 = KnowledgeComponentFactory(kc_id='kc_id_2')
 
         score1 = Score.objects.create(
             knowledge_component=knowledge_component1,
-            learner=self.user,
+            learner=self.student_user,
             value=0.23,
         )
         score2 = Score.objects.create(
             knowledge_component=knowledge_component2,
-            learner=self.user,
+            learner=self.student_user,
             value=0.42,
         )
 
@@ -80,7 +80,7 @@ class AdaptiveEngineAPIClientTests(UserSetupMixin, TestCase):
         ]
 
         with patch('lpd.client.requests.put') as patched_put:
-            AdaptiveEngineAPIClient.send_learner_data(self.user, scores)
+            AdaptiveEngineAPIClient.send_learner_data(self.student_user, scores)
             patched_put.assert_called_once_with(
                 expected_url, headers=expected_headers, json=expected_payload
             )

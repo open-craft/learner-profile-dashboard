@@ -646,7 +646,7 @@ class SubmissionTests(UserSetupMixin, TestCase):
         """
         Test string representation of `Submission` model.
         """
-        submission = SubmissionFactory(section=self.section, learner=self.user)
+        submission = SubmissionFactory(section=self.section, learner=self.student_user)
         self.assertEqual(str(submission), 'Submission 1: Basic information, student_user')
 
     def test_get_last_update(self):
@@ -658,7 +658,7 @@ class SubmissionTests(UserSetupMixin, TestCase):
         """
         # Submission does not exist
         try:
-            last_update = Submission.get_last_update(self.section, self.user)
+            last_update = Submission.get_last_update(self.section, self.student_user)
         except Submission.DoesNotExist:
             self.fail('`Submission.get_last_update` should not error out if submission does not exist.')
         else:
@@ -667,6 +667,6 @@ class SubmissionTests(UserSetupMixin, TestCase):
         # Submission exists
         with freeze_time('2017-01-17 11:25:00') as freezed_time:
             updated = utc.localize(freezed_time())
-            SubmissionFactory(section=self.section, learner=self.user, updated=updated)
-            last_update = Submission.get_last_update(self.section, self.user)
+            SubmissionFactory(section=self.section, learner=self.student_user, updated=updated)
+            last_update = Submission.get_last_update(self.section, self.student_user)
             self.assertEqual(last_update, updated)

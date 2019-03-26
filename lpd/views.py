@@ -9,7 +9,7 @@ import traceback
 
 from django.http import JsonResponse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from django.views.generic.base import TemplateView, View
+from django.views.generic.base import View
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -39,11 +39,12 @@ log = logging.getLogger(__name__)
 
 # Classes
 
-class LPDView(TemplateView):
+class LPDView(DetailView):
     """
-    Display LPD to learner.
+    Display specific LPD to learner.
     """
-    template_name = 'view.html'
+    model = LearnerProfileDashboard
+    template_name = 'lpd.html'
 
     def get_context_data(self, **kwargs):
         """
@@ -51,7 +52,8 @@ class LPDView(TemplateView):
         """
         context = super(LPDView, self).get_context_data(**kwargs)
         learner = User.objects.get(username=self.request.user.username)
-        lpd = LearnerProfileDashboard.objects.first()
+        lpd_pk = self.kwargs.get('pk')
+        lpd = LearnerProfileDashboard.objects.get(pk=lpd_pk)
         context['learner'] = learner
         context['lpd'] = lpd
         return context
@@ -241,7 +243,7 @@ class LPDSubmitView(View):
         if `answer_value` is meaningful (i.e., if it is not `None`).
         """
         answer_data = dict(value=answer_value)
-        if custom_input is not None:
+        if custom_input is not None and answer_option.allows_custom_input:
             answer_data['custom_input'] = custom_input
 
         log.info(
@@ -324,13 +326,6 @@ class ListLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, ListView
     template_name = 'list.html'
     paginate_by = 12
     paginate_orphans = 2
-
-
-class ShowLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, DetailView):
-    """
-    View for showing Learner Profile Dashboard instance.
-    """
-    template_name = 'show.html'
 
 
 class CreateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, CreateView):

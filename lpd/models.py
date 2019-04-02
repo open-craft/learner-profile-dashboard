@@ -139,7 +139,7 @@ class Question(models.Model):
         Return string of the form 'X.Y'
         where X represents 1-based `order` of parent section and Y represents `number` of this question.
         """
-        return '{section}.{number}'.format(section=self.section.order+1, number=self.number)
+        return '{section}.{number}'.format(section=self.section.order + 1, number=self.number)
 
 
 class QualitativeQuestion(Question):

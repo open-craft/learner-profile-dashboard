@@ -78,7 +78,7 @@ class Command(BaseCommand):
             section_reader = csv.reader(section_file, quotechar='|')
             for section_title, intro_text in section_reader:
                 section, _ = Section.objects.get_or_create(lpd=lpd, title=section_title, intro_text=intro_text)
-                sections[section.order+1] = section
+                sections[section.order + 1] = section
 
         # Create qualitative questions
         with open(os.path.join(os.getcwd(), 'data', 'qualitative_questions.csv'), 'rb') as qual_file:

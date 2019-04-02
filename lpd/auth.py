@@ -82,7 +82,7 @@ class ApplicationHookManager(AbstractApplicationHookManager):
         # it never sends username and email in any case.
         # So, since we want to track user for both iframe and non-iframe LTI blocks, username is completely ignored.
         uname = self._compress_username(user_id)
-        email = email if email else user_id+'@localhost'
+        email = email if email else user_id + '@localhost'
         try:
             User.objects.get(username=uname)
         except User.DoesNotExist:

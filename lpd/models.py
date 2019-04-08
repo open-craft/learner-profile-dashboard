@@ -139,7 +139,7 @@ class Question(models.Model):
         Return string of the form 'X.Y'
         where X represents 1-based `order` of parent section and Y represents `number` of this question.
         """
-        return '{section}.{number}'.format(section=self.section.order+1, number=self.number)
+        return '{section}.{number}'.format(section=self.section.order + 1, number=self.number)
 
 
 class QualitativeQuestion(Question):
@@ -642,6 +642,7 @@ class Score(models.Model):
     """
     knowledge_component = models.ForeignKey(
         'KnowledgeComponent',
+        related_name='scores',
         on_delete=models.CASCADE,
     )
     learner = models.ForeignKey(
@@ -662,6 +663,7 @@ class Submission(models.Model):
     """
     section = models.ForeignKey(
         'Section',
+        related_name='submissions',
         on_delete=models.CASCADE,
     )
     learner = models.ForeignKey(

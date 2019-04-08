@@ -64,7 +64,9 @@ class ApplicationHookManager(AbstractApplicationHookManager):
 
         This method is abstract in the parent class, so we need to implement it here.
         """
-        return reverse(settings.LTI_HOME_PAGE)
+        lpd_id = lti_data.get('custom_lpd_id')
+        redirect_url = reverse('lpd:view', kwargs=dict(pk=lpd_id))
+        return redirect_url
 
     def authentication_hook(self, request, user_id=None, username=None, email=None, extra_params=None):
         """
@@ -80,7 +82,7 @@ class ApplicationHookManager(AbstractApplicationHookManager):
         # it never sends username and email in any case.
         # So, since we want to track user for both iframe and non-iframe LTI blocks, username is completely ignored.
         uname = self._compress_username(user_id)
-        email = email if email else user_id+'@localhost'
+        email = email if email else user_id + '@localhost'
         try:
             User.objects.get(username=uname)
         except User.DoesNotExist:

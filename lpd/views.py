@@ -8,12 +8,10 @@ import pprint
 import traceback
 
 from django.http import JsonResponse
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from django.views.generic.base import TemplateView, View
-from django.contrib.auth.decorators import login_required
+from django.views.generic import DetailView
+from django.views.generic.base import View
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from requests import ConnectionError
 
 from lpd.client import AdaptiveEngineAPIClient
@@ -39,11 +37,12 @@ log = logging.getLogger(__name__)
 
 # Classes
 
-class LPDView(TemplateView):
+class LPDView(DetailView):
     """
-    Display LPD to learner.
+    Display specific LPD to learner.
     """
-    template_name = 'view.html'
+    model = LearnerProfileDashboard
+    template_name = 'lpd.html'
 
     def get_context_data(self, **kwargs):
         """
@@ -51,7 +50,8 @@ class LPDView(TemplateView):
         """
         context = super(LPDView, self).get_context_data(**kwargs)
         learner = User.objects.get(username=self.request.user.username)
-        lpd = LearnerProfileDashboard.objects.first()
+        lpd_pk = self.kwargs.get('pk')
+        lpd = LearnerProfileDashboard.objects.get(pk=lpd_pk)
         context['learner'] = learner
         context['lpd'] = lpd
         return context
@@ -241,7 +241,7 @@ class LPDSubmitView(View):
         if `answer_value` is meaningful (i.e., if it is not `None`).
         """
         answer_data = dict(value=answer_value)
-        if custom_input is not None:
+        if custom_input is not None and answer_option.allows_custom_input:
             answer_data['custom_input'] = custom_input
 
         log.info(
@@ -315,43 +315,3 @@ class LearnerProfileDashboardViewMixin(object):
     """
     model = LearnerProfileDashboard
     form_class = LearnerProfileDashboardForm
-
-
-class ListLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, ListView):
-    """
-    View for listing Learner Profile Dashboard instances.
-    """
-    template_name = 'list.html'
-    paginate_by = 12
-    paginate_orphans = 2
-
-
-class ShowLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, DetailView):
-    """
-    View for showing Learner Profile Dashboard instance.
-    """
-    template_name = 'show.html'
-
-
-class CreateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, CreateView):
-    """
-    View for creating Learner Profile Dashboard instance.
-    """
-    template_name = 'edit.html'
-
-    '''Login required for all posts'''
-    @method_decorator(login_required)
-    def post(self, request, *args, **kwargs):
-        return super(CreateLearnerProfileDashboardView, self).post(request, *args, **kwargs)
-
-
-class UpdateLearnerProfileDashboardView(LearnerProfileDashboardViewMixin, UpdateView):
-    """
-    View for updating Learner Profile Dashboard instance.
-    """
-    template_name = 'edit.html'
-
-    '''Login required for all posts'''
-    @method_decorator(login_required)
-    def post(self, request, *args, **kwargs):
-        return super(UpdateLearnerProfileDashboardView, self).post(request, *args, **kwargs)

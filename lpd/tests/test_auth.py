@@ -83,3 +83,17 @@ class ApplicationHookManagerTests(SimpleTestCase):
                 request_mock, username=expected_uname, password=expected_password
             )
             login_mock.assert_called_once_with(request_mock, auth_result)
+
+    @ddt.data('1', '2', '123')
+    def test_authenticated_redirect(self, lpd_id, user_objects_manager):
+        """
+        Test that `authenticated_redirect_to` takes custom parameters into account when building URL to redirect to.
+        """
+        request = mock.Mock()
+        lti_data = {
+            'custom_lpd_id': lpd_id,
+        }
+        expected_redirect = "/lpd/{lpd_id}".format(lpd_id=lpd_id)
+        actual_redirect = self.manager.authenticated_redirect_to(request, lti_data)
+
+        self.assertEqual(actual_redirect, expected_redirect)

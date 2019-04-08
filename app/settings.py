@@ -190,7 +190,6 @@ LOGGING = {
 SECRET_KEY = os.environ.get('SECRET_KEY', 'SET-ME')
 
 # LTI settings
-LTI_HOME_PAGE = 'lpd:home'
 LTI_CLIENT_KEY = os.environ.get('LTI_CLIENT_KEY', 'SET-ME')
 LTI_CLIENT_SECRET = os.environ.get('LTI_CLIENT_SECRET', 'SET-ME')
 

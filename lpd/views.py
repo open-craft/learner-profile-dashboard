@@ -18,7 +18,6 @@ from lpd.client import AdaptiveEngineAPIClient
 from lpd.models import (
     AnswerOption,
     LearnerProfileDashboard,
-    LearnerProfileDashboardForm,
     LikertScaleQuestion,
     MultipleChoiceQuestion,
     QualitativeAnswer,
@@ -357,11 +356,3 @@ class LPDSubmitView(View):
         )
         log.info('Date and time of latest submission: %s.', submission.updated.strftime('%m/%d/%Y at %I:%M %p (UTC)'))
         return get_last_update(section, user)
-
-
-class LearnerProfileDashboardViewMixin(object):
-    """
-    Mixin for CRUD views for Learner Profile Dashboard.
-    """
-    model = LearnerProfileDashboard
-    form_class = LearnerProfileDashboardForm

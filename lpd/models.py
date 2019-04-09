@@ -5,7 +5,6 @@ Models for Learner Profile Dashboard
 import itertools
 import re
 
-from django import forms
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
@@ -37,15 +36,6 @@ class LearnerProfileDashboard(models.Model):
         Return URL for viewing details about a specific Learner Profile Dashboard instance.
         """
         return reverse('lpd:view', kwargs=dict(pk=self.id))
-
-
-class LearnerProfileDashboardForm(forms.ModelForm):
-    """
-    Form for creating an instance of the Learner Profile Dashboard.
-    """
-    class Meta:
-        model = LearnerProfileDashboard
-        fields = ['name']
 
 
 class Section(OrderedModel):

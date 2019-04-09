@@ -27,7 +27,7 @@ class LearnerProfileDashboard(models.Model):
     modified_at = models.DateTimeField(auto_now=True, editable=False)
 
     def __unicode__(self):
-        return self.name
+        return 'LPD {id}: {name}'.format(id=self.id, name=self.name)
 
     def __str__(self):
         return unicode(self).encode('utf-8')
@@ -78,7 +78,9 @@ class Section(OrderedModel):
         pass
 
     def __unicode__(self):
-        return 'Section {id}: {title}'.format(id=self.id, title=self.title or '<title not set>')
+        return '{lpd} > Section {id}: {title}'.format(
+            lpd=str(self.lpd), id=self.id, title=self.title or '<title not set>'
+        )
 
     @property
     def questions(self):
@@ -172,7 +174,9 @@ class QualitativeQuestion(Question):
     )
 
     def __unicode__(self):
-        return 'QualitativeQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > QualitativeQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
 
     @property
     def type(self):
@@ -331,7 +335,9 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
     )
 
     def __unicode__(self):
-        return 'MultipleChoiceQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > MultipleChoiceQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
 
     @property
     def type(self):
@@ -381,7 +387,9 @@ class RankingQuestion(QuantitativeQuestion):
     )
 
     def __unicode__(self):
-        return 'RankingQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > RankingQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
 
     @property
     def type(self):
@@ -457,7 +465,9 @@ class LikertScaleQuestion(QuantitativeQuestion):
     )
 
     def __unicode__(self):
-        return 'LikertScaleQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > LikertScaleQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
 
     @property
     def type(self):
@@ -529,7 +539,9 @@ class AnswerOption(models.Model):
         ordering = ["-option_text"]
 
     def __unicode__(self):
-        return 'AnswerOption {id}: {text}'.format(id=self.id, text=self.option_text)
+        return '{question} > AnswerOption {id}: {text}'.format(
+            question=str(self.content_object), id=self.id, text=self.option_text
+        )
 
     def get_data(self, learner):
         """
@@ -627,7 +639,17 @@ class KnowledgeComponent(models.Model):
     )
 
     def __unicode__(self):
-        return 'KnowledgeComponent {id}: {kc_id}, {kc_name}'.format(id=self.id, kc_id=self.kc_id, kc_name=self.kc_name)
+        kc_info = 'KnowledgeComponent {id}: {kc_id}, {kc_name}'.format(
+            id=self.id, kc_id=self.kc_id, kc_name=self.kc_name
+        )
+        try:
+            answer_option = str(self.answer_option)
+        except AnswerOption.DoesNotExist:
+            return kc_info
+        else:
+            return '{kc_info} (associated with {answer_option})'.format(
+                kc_info=kc_info, answer_option=answer_option
+            )
 
 
 class Score(models.Model):

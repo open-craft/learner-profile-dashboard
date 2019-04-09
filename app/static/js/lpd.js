@@ -57,11 +57,11 @@ $(document).ready(function() {
         $('.submission-info').each(function(i, submissionInfo) {
             var $submissionInfo = $(submissionInfo),
                 lastUpdate = $submissionInfo.data('last-update'),
-                $sectionForm = $submissionInfo.parents('form'),
+                $submissionForm = $submissionInfo.parents('form'),
                 data = {
                     'last_update': lastUpdate
                 };
-            updateSubmissionInfo($sectionForm, data);
+            updateSubmissionInfo($submissionForm, data);
         });
     };
 
@@ -81,8 +81,8 @@ $(document).ready(function() {
         });
     };
 
-    var collectAnswers = function($sectionForm) {
-        var $questions = getUpdatedQuestions($sectionForm),
+    var collectAnswers = function($submissionForm) {
+        var $questions = getUpdatedQuestions($submissionForm),
             qualitativeAnswers = [],
             quantitativeAnswers = [];
 
@@ -111,8 +111,8 @@ $(document).ready(function() {
         };
     };
 
-    var getUpdatedQuestions = function($sectionForm) {
-        return $sectionForm.find('.question').filter(function() {
+    var getUpdatedQuestions = function($submissionForm) {
+        return $submissionForm.find('.question').filter(function() {
             return $(this).data('answer-changed') === true;
         });
     };
@@ -173,15 +173,15 @@ $(document).ready(function() {
         return $customInput;
     };
 
-    var resetQuestionState = function($sectionForm) {
-        var $questions = getUpdatedQuestions($sectionForm);
+    var resetQuestionState = function($submissionForm) {
+        var $questions = getUpdatedQuestions($submissionForm);
         $questions.each(function(i, question) {
             $(question).data('answer-changed', false);
         });
     };
 
-    var updateSubmissionInfo = function($sectionForm, data) {
-        var $submissionInfo = $sectionForm.find('.submission-info'),
+    var updateSubmissionInfo = function($submissionForm, data) {
+        var $submissionInfo = $submissionForm.find('.submission-info'),
             lastUpdate = data.last_update;
         $submissionInfo.text(formatLastUpdate(lastUpdate));
     };
@@ -200,22 +200,6 @@ $(document).ready(function() {
     };
 
 
-    // Event handlers
-
-    $('.section-title').click(function(e) {
-        var $sectionForm = $(this).parent('form'),
-            $sectionCollapse = $sectionForm.find('.section-collapse'),
-            $intro = $sectionForm.children('.section-intro'),
-            $questions = $sectionForm.children('.section-questions'),
-            $controls = $sectionForm.children('.section-controls');
-
-        $sectionCollapse.toggleClass('expanded');
-        $sectionCollapse.toggleClass('collapsed');
-        $intro.toggle('slow');
-        $questions.toggle('slow');
-        $controls.toggle('slow');
-    });
-
     $('.question').change(function(e) {
         $(this).data('answer-changed', true);
     });
@@ -229,25 +213,25 @@ $(document).ready(function() {
         uncheckSameValueRanks(this);
     });
 
-    $('.section-submit').click(function(e) {
+    $('.section-submit, .question-submit').click(function(e) {
         e.preventDefault();
         console.log('Submitting answers ...');
 
-        var $sectionForm = $(this).parents('form'),
-            sectionID = $sectionForm.data('section-id'),
-            answers = collectAnswers($sectionForm);
+        var $submissionForm = $(this).parents('form'),
+            sectionID = $submissionForm.data('section-id'),
+            answers = collectAnswers($submissionForm);
 
         answers['section_id'] = sectionID;
 
         $.ajax({
-            url: 'submit',
+            url: '/lpd/submit',
             type: 'POST',
             data: answers,
             success: function(data) {
                 console.log('SUCCESS');
                 console.log(data);
-                resetQuestionState($sectionForm);
-                updateSubmissionInfo($sectionForm, data);
+                resetQuestionState($submissionForm);
+                updateSubmissionInfo($submissionForm, data);
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.log('ERROR');

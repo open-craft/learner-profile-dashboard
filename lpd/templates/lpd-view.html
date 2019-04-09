@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 
+{% load staticfiles %}
+
+{% block js %}
+  {{ block.super }}
+  <script src="{% static "js/section.js" %}"></script>
+{% endblock js %}
+
 {% block content %}
   <div id="view-lpd">
     <h1 class="lpd">{{ lpd.name }}</h1>

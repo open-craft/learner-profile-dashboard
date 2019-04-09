@@ -14,6 +14,8 @@ from django.db import IntegrityError
 
 from django_lti_tool_provider import AbstractApplicationHookManager
 
+from lpd.constants import QuestionTypes
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +64,30 @@ class ApplicationHookManager(AbstractApplicationHookManager):
         """
         Return redirect URL for authenticated LTI request.
 
+        Take into account custom LTI parameters when deciding on URL to return.
+
         This method is abstract in the parent class, so we need to implement it here.
         """
         lpd_id = lti_data.get('custom_lpd_id')
-        redirect_url = reverse('lpd:view', kwargs=dict(pk=lpd_id))
+
+        if lpd_id is not None:
+            return reverse('lpd:view', kwargs=dict(pk=lpd_id))
+
+        question_id = lti_data.get('custom_question_id')
+        question_type = lti_data.get('custom_question_type')
+
+        if question_type == 'qualitative':
+            redirect_url = reverse('lpd:qualitative-question', kwargs=dict(pk=question_id))
+
+        elif question_type == QuestionTypes.MCQ:
+            redirect_url = reverse('lpd:multiple-choice-question', kwargs=dict(pk=question_id))
+
+        elif question_type == QuestionTypes.RANKING:
+            redirect_url = reverse('lpd:ranking-question', kwargs=dict(pk=question_id))
+
+        elif question_type == QuestionTypes.LIKERT:
+            redirect_url = reverse('lpd:likert-scale-question', kwargs=dict(pk=question_id))
+
         return redirect_url
 
     def authentication_hook(self, request, user_id=None, username=None, email=None, extra_params=None):

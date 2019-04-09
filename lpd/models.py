@@ -178,6 +178,12 @@ class QualitativeQuestion(Question):
             section=str(self.section), id=self.id, text=self.question_text
         )
 
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific qualitative question.
+        """
+        return reverse('lpd:qualitative-question', kwargs=dict(pk=self.id))
+
     @property
     def type(self):
         """
@@ -339,6 +345,12 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
             section=str(self.section), id=self.id, text=self.question_text
         )
 
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific multiple choice question.
+        """
+        return reverse('lpd:multiple-choice-question', kwargs=dict(pk=self.id))
+
     @property
     def type(self):
         """
@@ -390,6 +402,12 @@ class RankingQuestion(QuantitativeQuestion):
         return '{section} > RankingQuestion {id}: {text}'.format(
             section=str(self.section), id=self.id, text=self.question_text
         )
+
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific ranking question.
+        """
+        return reverse('lpd:ranking-question', kwargs=dict(pk=self.id))
 
     @property
     def type(self):
@@ -468,6 +486,12 @@ class LikertScaleQuestion(QuantitativeQuestion):
         return '{section} > LikertScaleQuestion {id}: {text}'.format(
             section=str(self.section), id=self.id, text=self.question_text
         )
+
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific Likert scale question.
+        """
+        return reverse('lpd:likert-scale-question', kwargs=dict(pk=self.id))
 
     @property
     def type(self):

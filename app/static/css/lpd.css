@@ -58,15 +58,15 @@ body {
     font-size: 0.95rem;
 }
 
-.section-intro, .section-questions, .section-controls {
+.section-intro, .section-questions, .section-controls, .question-controls {
     padding-left: 0.4rem;
 }
 
-.section-questions, .section-controls, .question {
+.section-questions, .section-controls, .question-controls, .question {
     margin-bottom: 4rem;
 }
 
-.question-number, .ranking-option > label:last-of-type, .section-submit {
+.question-number, .ranking-option > label:last-of-type, .section-submit, .question-submit {
     margin-right: 1.4rem;
 }
 
@@ -119,7 +119,7 @@ body {
     margin-left: 0.6rem;
 }
 
-.section-submit {
+.section-submit, .question-submit {
     box-shadow: none;
     border-color: #0075b4;
     border-style: solid;
@@ -133,6 +133,6 @@ body {
     cursor: pointer;
 }
 
-.section-submit:hover {
+.section-submit:hover, .question-submit:hover {
 	background-color: #065683;
 }

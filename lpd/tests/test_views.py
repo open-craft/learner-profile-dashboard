@@ -5,6 +5,7 @@ View tests for Learner Profile Dashboard
 import json
 import logging
 
+import ddt
 from django.urls import reverse
 from django.db import IntegrityError
 from django.test import TestCase
@@ -24,6 +25,7 @@ from lpd.models import (
 from lpd.tests.factories import (
     KnowledgeComponentFactory,
     LearnerProfileDashboardFactory,
+    LikertScaleQuestionFactory,
     MultipleChoiceQuestionFactory,
     QualitativeQuestionFactory,
     RankingQuestionFactory,
@@ -155,6 +157,110 @@ class LPDViewTests(UserSetupMixin, TestCase):
         # Check access for authenticated student.
         self.admin_login()
         response = self.client.get(non_existent_lpd_url)
+        self.assertEqual(response.status_code, 404)
+
+
+@ddt.ddt
+class QuestionViewTests(UserSetupMixin, TestCase):
+    """
+    Tests for QuestionViews.
+    """
+    def setUp(self):
+        super(QuestionViewTests, self).setUp()
+        self.qualitative_question = QualitativeQuestionFactory()
+        self.multiple_choice_question = MultipleChoiceQuestionFactory()
+        self.ranking_question = RankingQuestionFactory()
+        self.likert_scale_question = LikertScaleQuestionFactory()
+
+    @property
+    def questions(self):
+        """
+        Return list of default questions that are available to each test in this class.
+        """
+        return [
+            self.qualitative_question,
+            self.multiple_choice_question,
+            self.ranking_question,
+            self.likert_scale_question,
+        ]
+
+    def test_anonymous_existing(self):
+        """
+        Test that URL targeting existing question redirects to admin login for unauthenticated users.
+        """
+        for question in self.questions:
+            question_url = question.get_absolute_url()
+            response = self.client.get(question_url)
+            login_url = ''.join([reverse('admin:login'), '?next=', question_url])
+            self.assertRedirects(response, login_url)
+
+    def test_authenticated_existing(self):
+        """
+        Test that authenticated users can access URL targeting existing question.
+        """
+        for question in self.questions:
+            question_url = question.get_absolute_url()
+
+            # Check access for authenticated student.
+            self.student_login()
+            response = self.client.get(question_url)
+            self.assertEqual(response.status_code, 200)
+
+            # Reset state
+            self.client.logout()
+
+            # Check access for authenticated admin.
+            self.admin_login()
+            response = self.client.get(question_url)
+            self.assertEqual(response.status_code, 200)
+
+    @ddt.data(
+        QualitativeQuestionFactory,
+        MultipleChoiceQuestionFactory,
+        RankingQuestionFactory,
+        LikertScaleQuestionFactory,
+    )
+    def test_anonymous_non_existent(self, question_factory):
+        """
+        Test that URL targeting non-existent question redirects to admin login for unauthenticated users.
+        """
+        lpd = LearnerProfileDashboardFactory(name='Ghost LPD')
+        section = SectionFactory(lpd=lpd, title='Ghost section')
+        non_existent_question = question_factory(section=section, question_text='Ghost question')
+        non_existent_question_url = non_existent_question.get_absolute_url()
+        non_existent_question.delete()
+        response = self.client.get(non_existent_question_url)
+        login_url = ''.join([reverse('admin:login'), '?next=', non_existent_question_url])
+        self.assertRedirects(response, login_url)
+
+    @ddt.data(
+        QualitativeQuestionFactory,
+        MultipleChoiceQuestionFactory,
+        RankingQuestionFactory,
+        LikertScaleQuestionFactory,
+    )
+    @silence_request_warnings
+    def test_authenticated_non_existent(self, question_factory):
+        """
+        Test that authenticated users can access URL targeting non-existent question.
+        """
+        lpd = LearnerProfileDashboardFactory(name='Ghost LPD')
+        section = SectionFactory(lpd=lpd, title='Ghost section')
+        non_existent_question = question_factory(section=section, question_text='Ghost question')
+        non_existent_question_url = non_existent_question.get_absolute_url()
+        non_existent_question.delete()
+
+        # Check access for authenticated student.
+        self.student_login()
+        response = self.client.get(non_existent_question_url)
+        self.assertEqual(response.status_code, 404)
+
+        # Reset state
+        self.client.logout()
+
+        # Check access for authenticated student.
+        self.admin_login()
+        response = self.client.get(non_existent_question_url)
         self.assertEqual(response.status_code, 404)
 
 

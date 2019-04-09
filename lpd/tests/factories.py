@@ -98,7 +98,7 @@ class LikertScaleQuestionFactory(QuestionFactory):
     class Meta:
         model = LikertScaleQuestion
 
-    answer_option_range = random.randint(1, 10)
+    answer_option_range = random.choice(['value', 'agreement'])
 
 
 class QualitativeAnswerFactory(factory.DjangoModelFactory):

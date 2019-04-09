@@ -84,16 +84,34 @@ class ApplicationHookManagerTests(SimpleTestCase):
             )
             login_mock.assert_called_once_with(request_mock, auth_result)
 
-    @ddt.data('1', '2', '123')
-    def test_authenticated_redirect(self, lpd_id, user_objects_manager):
+    @ddt.unpack
+    @ddt.data(
+        ('1', None, None),
+        ('2', None, None),
+        ('123', None, None),
+        (None, '1', 'qualitative'),
+        (None, '2', 'mcq'),
+        (None, '123', 'ranking'),
+        (None, '123', 'likert'),
+    )
+    def test_authenticated_redirect(self, lpd_id, question_id, question_type, user_objects_manager):
         """
         Test that `authenticated_redirect_to` takes custom parameters into account when building URL to redirect to.
         """
         request = mock.Mock()
-        lti_data = {
-            'custom_lpd_id': lpd_id,
-        }
-        expected_redirect = "/lpd/{lpd_id}".format(lpd_id=lpd_id)
-        actual_redirect = self.manager.authenticated_redirect_to(request, lti_data)
+        if lpd_id:
+            lti_data = {
+                'custom_lpd_id': lpd_id,
+            }
+            expected_redirect = "/lpd/{lpd_id}".format(lpd_id=lpd_id)
+        else:
+            lti_data = {
+                'custom_question_id': question_id,
+                'custom_question_type': question_type,
+            }
+            expected_redirect = "/lpd/q_{question_type}/{question_id}".format(
+                question_type=question_type, question_id=question_id
+            )
 
+        actual_redirect = self.manager.authenticated_redirect_to(request, lti_data)
         self.assertEqual(actual_redirect, expected_redirect)

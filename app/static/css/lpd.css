@@ -50,6 +50,10 @@ body {
     font-size: 0.85rem;
 }
 
+.section-completeness {
+    float: right;
+}
+
 .section-intro, .submit-instructions {
     margin-bottom: 1.6rem;
 }

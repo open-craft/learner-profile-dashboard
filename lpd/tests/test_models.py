@@ -2,6 +2,8 @@
 Model tests for Learner Profile Dashboard
 """
 
+# pylint: disable=too-many-lines
+
 import logging
 import random
 
@@ -59,6 +61,7 @@ QUESTION_BATCH_SIZE = 5  # Number of questions to create per question type
 
 # Classes
 
+@ddt.ddt
 class LearnerProfileDashboardTests(TestCase):
     """LearnerProfileDashboard model tests."""
 
@@ -69,12 +72,136 @@ class LearnerProfileDashboardTests(TestCase):
         lpd = LearnerProfileDashboardFactory(name='Empty LPD')
         self.assertEqual(str(lpd), 'LPD 1: Empty LPD')
 
+    @ddt.data(
+        (
+            [],  # No sections
+            0.
+        ),
+        (
+            [  # Learner didn't complete any sections (0 out of 1)
+                0.,
+            ],
+            0.,
+        ),
+        (
+            [  # Learner didn't complete any sections (0 out of 3)
+                0.,
+                0.,
+                0.,
+            ],
+            0.,
+        ),
+        (
+            [  # Learner completed some sections (1 out of 3)
+                100.,
+                0.,
+                0.,
+            ],
+            33.,
+        ),
+        (
+            [  # Learner completed some sections (2 out of 3)
+                100.,
+                100.,
+                0.,
+            ],
+            67.,
+        ),
+        (
+            [  # Learner partially completed some sections (1 out of 3)
+                40.,
+                0.,
+                0.,
+            ],
+            13.,
+        ),
+        (
+            [  # Learner partially completed some sections (2 out of 3)
+                25.,
+                82.,
+                0.,
+            ],
+            36.,
+        ),
+        (
+            [  # Learner completed a section and partially completed another one
+                0.,
+                100.,
+                53.,
+            ],
+            51.,
+        ),
+        (
+            [  # Learner partially completed all sections
+                14.,
+                98.,
+                61.,
+            ],
+            58.,
+        ),
+        (
+            [  # Learner completed all sections (1 out of 1)
+                100.,
+            ],
+            100.,
+        ),
+        (
+            [  # Learner completed all sections (3 out of 3)
+                100.,
+                100.,
+                100.,
+            ],
+            100.,
+        ),
+    )
+    @ddt.unpack
+    def test_get_percent_complete(self, section_percent_complete, expected_percent_complete):
+        """
+        Test that `get_percent_complete` method returns appropriate value
+        based on number of sections that learner completed.
+        """
+        learner = UserFactory()
+        lpd = LearnerProfileDashboardFactory(name='Test LPD')
 
+        num_sections = len(section_percent_complete)
+        for n in range(num_sections):
+            SectionFactory(lpd=lpd, title='Test section {n}'.format(n=n))
+
+        with patch('lpd.models.Section.get_percent_complete') as patched_get_percent_complete:
+            patched_get_percent_complete.side_effect = section_percent_complete
+            expected_calls = num_sections * [call(learner)]
+
+            percent_complete = lpd.get_percent_complete(learner)
+
+            patched_get_percent_complete.assert_has_calls(expected_calls)
+            self.assertEqual(round(percent_complete), expected_percent_complete)
+
+
+@ddt.ddt
 class SectionTests(TestCase):
     """Section model tests."""
 
     def setUp(self):
         self.lpd = LearnerProfileDashboardFactory(name='Test LPD')
+
+    @classmethod
+    def _create_questions(cls, section):
+        """
+        Create a list of questions associated with `section` and return it.
+
+        For each type of question (as specified by `QUESTION_FACTORIES`),
+        create `QUESTION_BATCH_SIZE` questions and add them to the result list,
+        then return result list.
+        """
+        questions = []
+        question_numbers = sorted(random.sample(range(1, 100), QUESTION_BATCH_SIZE*len(QUESTION_FACTORIES)))
+        for unused in range(QUESTION_BATCH_SIZE):
+            for question_factory in QUESTION_FACTORIES:
+                question_number = question_numbers.pop(0)
+                log.info('Creating question #%d using %s.', question_number, question_factory)
+                question = question_factory(section=section, number=question_number)
+                questions.append(question)
+        return questions
 
     def test_str(self):
         """
@@ -89,15 +216,104 @@ class SectionTests(TestCase):
         """
         log.info('Testing `questions` property of `Section` model.')
         section = SectionFactory(lpd=self.lpd, title='Details, Details, Details')
-        questions = []
-        question_numbers = sorted(random.sample(range(1, 100), QUESTION_BATCH_SIZE*len(QUESTION_FACTORIES)))
-        for unused in range(QUESTION_BATCH_SIZE):
-            for question_factory in QUESTION_FACTORIES:
-                question_number = question_numbers.pop(0)
-                log.info('Creating question #%d using %s.', question_number, question_factory)
-                question = question_factory(section=section, number=question_number)
-                questions.append(question)
+        questions = self._create_questions(section)
         self.assertEqual(section.questions, questions)
+
+    def test_get_percent_complete_no_questions(self):
+        """
+        Test that `get_percent_complete` method returns appropriate value
+        based on number of questions that learner answered.
+        """
+        learner = UserFactory()
+        section = SectionFactory(lpd=self.lpd, title='Test section')
+
+        with patch('lpd.models.QualitativeQuestion.has_answer_from') as patched_qualitative_has_answer_from, \
+                patch('lpd.models.MultipleChoiceQuestion.has_answer_from') as patched_multiple_has_answer_from, \
+                patch('lpd.models.RankingQuestion.has_answer_from') as patched_ranking_has_answer_from, \
+                patch('lpd.models.LikertScaleQuestion.has_answer_from') as patched_likert_has_answer_from:
+
+            percent_complete = section.get_percent_complete(learner)
+            patched_qualitative_has_answer_from.assert_not_called()
+            patched_multiple_has_answer_from.assert_not_called()
+            patched_ranking_has_answer_from.assert_not_called()
+            patched_likert_has_answer_from.assert_not_called()
+            self.assertEqual(percent_complete, 0.)
+
+    # pylint: disable=too-many-locals
+    @ddt.data(
+        (
+            {  # Learner didn't answer any questions
+                'qualitative': 0,
+                'multiple_choice': 0,
+                'ranking': 0,
+                'likert': 0,
+            },
+            0.,
+        ),
+        (
+            {  # Learner answered some questions (9 out of 20)
+                'qualitative': 1,
+                'multiple_choice': 0,
+                'ranking': 5,
+                'likert': 3,
+            },
+            45.,
+        ),
+        (
+            {  # Learner answered all questions
+                'qualitative': QUESTION_BATCH_SIZE,
+                'multiple_choice': QUESTION_BATCH_SIZE,
+                'ranking': QUESTION_BATCH_SIZE,
+                'likert': QUESTION_BATCH_SIZE,
+            },
+            100.,
+        ),
+    )
+    @ddt.unpack
+    def test_get_percent_complete(self, num_questions_answered, expected_percent_complete):
+        """
+        Test that `get_percent_complete` method returns appropriate value
+        based on number of questions that learner answered.
+        """
+        learner = UserFactory()
+        section = SectionFactory(lpd=self.lpd, title='Test section')
+        questions = self._create_questions(section)
+
+        # Verify assumption that this test makes about total number of questions belonging to `section`
+        self.assertEqual(len(questions), QUESTION_BATCH_SIZE * len(QUESTION_FACTORIES))
+
+        with patch('lpd.models.QualitativeQuestion.has_answer_from') as patched_qualitative_has_answer_from, \
+                patch('lpd.models.MultipleChoiceQuestion.has_answer_from') as patched_multiple_has_answer_from, \
+                patch('lpd.models.RankingQuestion.has_answer_from') as patched_ranking_has_answer_from, \
+                patch('lpd.models.LikertScaleQuestion.has_answer_from') as patched_likert_has_answer_from:
+            num_qualitative_questions_answered = num_questions_answered['qualitative']
+            num_qualitative_questions_unanswered = QUESTION_BATCH_SIZE - num_qualitative_questions_answered
+            patched_qualitative_has_answer_from.side_effect = (
+                num_qualitative_questions_answered * [True] + num_qualitative_questions_unanswered * [False]
+            )
+            num_multiple_choice_questions_answered = num_questions_answered['multiple_choice']
+            num_multiple_choice_questions_unanswered = QUESTION_BATCH_SIZE - num_multiple_choice_questions_answered
+            patched_multiple_has_answer_from.side_effect = (
+                num_multiple_choice_questions_answered * [True] + num_multiple_choice_questions_unanswered * [False]
+            )
+            num_ranking_questions_answered = num_questions_answered['ranking']
+            num_ranking_questions_unanswered = QUESTION_BATCH_SIZE - num_ranking_questions_answered
+            patched_ranking_has_answer_from.side_effect = (
+                num_ranking_questions_answered * [True] + num_ranking_questions_unanswered * [False]
+            )
+            num_likert_questions_answered = num_questions_answered['likert']
+            num_likert_questions_unanswered = QUESTION_BATCH_SIZE - num_likert_questions_answered
+            patched_likert_has_answer_from.side_effect = (
+                num_likert_questions_answered * [True] + num_likert_questions_unanswered * [False]
+            )
+            expected_calls = QUESTION_BATCH_SIZE * [call(learner)]
+
+            percent_complete = section.get_percent_complete(learner)
+            patched_qualitative_has_answer_from.assert_has_calls(expected_calls)
+            patched_multiple_has_answer_from.assert_has_calls(expected_calls)
+            patched_ranking_has_answer_from.assert_has_calls(expected_calls)
+            patched_likert_has_answer_from.assert_has_calls(expected_calls)
+            self.assertEqual(percent_complete, expected_percent_complete)
 
 
 class QuestionTests(TestCase):
@@ -338,6 +554,31 @@ class QualitativeQuestionTests(TestCase):
             places=2
         )
 
+    @ddt.data(
+        ('', False),
+        ('Yes!', True),
+        ('This is not an answer.', True),
+        ('12345', True),
+        ('a, comma-separated, list, of, items', True)
+    )
+    @ddt.unpack
+    def test_has_answer_from(self, answer, expected_answer_status):
+        """
+        Test that `has_answer_from` method returns appropriate value
+        based on answer that learner provided for qualitative question.
+
+        For qualitative questions, any text submitted by the learner counts as an answer.
+        """
+        learner = UserFactory()
+        question = QualitativeQuestionFactory()
+        with patch('lpd.models.QualitativeQuestion.get_answer') as patched_get_answer:
+            patched_get_answer.return_value = answer
+
+            has_answer_from_learner = question.has_answer_from(learner)
+
+            patched_get_answer.assert_called_once_with(learner)
+            self.assertEqual(has_answer_from_learner, expected_answer_status)
+
 
 @ddt.ddt
 class QuantitativeQuestionTests(TestCase):
@@ -406,6 +647,18 @@ class QuantitativeQuestionTestMixin(object):
         lpd = LearnerProfileDashboardFactory(name='Test LPD')
         self.section = SectionFactory(lpd=lpd, title='Test section')
 
+    @classmethod
+    def _create_answer_options(cls, question, option_texts, fallback_options=(False, False, False)):
+        """
+        Create answer options for `question` based on options listed in `option_texts`,
+        and make them fallback options based on value of `fallback_options`.
+        """
+        return [
+            AnswerOption.objects.create(
+                content_object=question, option_text=option_text, fallback_option=fallback_option
+            ) for option_text, fallback_option in zip(option_texts, fallback_options)
+        ]
+
     def test_get_answer_options(self):
         """
         Test that `get_answer_options` returns answer options in appropriate order.
@@ -414,27 +667,22 @@ class QuantitativeQuestionTestMixin(object):
 
         # Create fallback options first, to make sure order of answer options in DB
         # doesn't match order that we want to test for.
-        fallback_option0 = AnswerOption.objects.create(
-            content_object=question, option_text="Don't know", fallback_option=True
-        )
-        fallback_option1 = AnswerOption.objects.create(
-            content_object=question, option_text='Other:', fallback_option=True
+        expected_fallback_options = self._create_answer_options(
+            question, ("Don't know", 'Other:'), fallback_options=(True, True)
         )
 
         # Create regular answer options
-        answer_option0 = AnswerOption.objects.create(content_object=question, option_text='Yellow')
-        answer_option1 = AnswerOption.objects.create(content_object=question, option_text='Blue')
-        answer_option2 = AnswerOption.objects.create(content_object=question, option_text='Red')
+        expected_answer_options = self._create_answer_options(question, ('Yellow', 'Blue', 'Red'))
         answer_options = list(question.get_answer_options())
 
         # Question is configured to display answer options in random order,
         # so we only need to check if `get_answer_options` returns all answer options (and no more).
         self.assertEqual(len(answer_options), 5)
-        for answer_option in [answer_option0, answer_option1, answer_option2]:
+        for answer_option in expected_answer_options:
             self.assertIn(answer_option, answer_options)
 
         # However, fallback options need to be listed last, in reverse alphabetical order:
-        self.assertEqual(answer_options[3:], [fallback_option1, fallback_option0])
+        self.assertEqual(answer_options[3:], list(reversed(expected_fallback_options)))
 
         # Disable randomization option
         question.randomize_options = False
@@ -446,7 +694,8 @@ class QuantitativeQuestionTestMixin(object):
         # and whether it lists fallback options last, in reverse alphabetical order.
         self.assertEqual(len(answer_options), 5)
         self.assertEqual(
-            answer_options, [answer_option1, answer_option2, answer_option0, fallback_option1, fallback_option0]
+            answer_options,
+            sorted(expected_answer_options, key=lambda o: o.option_text) + list(reversed(expected_fallback_options))
         )
 
 
@@ -506,6 +755,48 @@ class MultipleChoiceQuestionTests(QuantitativeQuestionTestMixin, TestCase):
         score = MultipleChoiceQuestion._get_score(answer_value)
         self.assertEqual(score, expected_score)
 
+    @ddt.data(
+        # MCQ
+        (1, (False, False, False), 3, False),  # No answers (learner did not select any option)
+        (1, (False, False, True), 3, True),    # Learner selected 1 fallback option
+        (1, (False, True, False), 2, True),    # Learner selected 1 regular option
+        (1, (True, False, False), 1, True),    # Learner selected 1 regular option
+        # MRQ
+        (3, (False, False, False), 3, False),  # No answers (learner did not select any option)
+        (3, (False, False, True), 3, True),    # Learner selected 1 fallback option
+        (3, (False, True, False), 2, True),    # Learner selected 1 regular option
+        (3, (False, True, True), 2, True),     # Learner selected 1 regular option, 1 fallback option
+        (3, (True, False, False), 1, True),    # Learner selected 1 regular option
+        (3, (True, False, True), 1, True),     # Learner selected 1 regular option, 1 fallback option
+        (3, (True, True, False), 1, True),     # Learner selected 2 regular options
+        (3, (True, True, True), 1, True),      # learner selected 2 regular options, 1 fallback option
+    )
+    @ddt.unpack
+    def test_has_answer_from(
+            self, max_options_to_select, answer_option_selection_status, expected_checks, expected_answer_status
+    ):
+        """
+        Test that `has_answer_from` method returns appropriate value
+        based on number of answer options that learner selected for multiple choice question.
+
+        For multiple choice questions, learner must select at least one answer option
+        for the LPD to consider the question answered.
+        """
+        learner = UserFactory()
+        question = self.question_factory(
+            question_text='Will you answer this or not?',
+            max_options_to_select=max_options_to_select
+        )
+        self._create_answer_options(question, ('A', 'B', 'C'), fallback_options=(False, False, True))
+        with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
+            patched_is_selected_by.side_effect = answer_option_selection_status
+            expected_calls = expected_checks * [call(learner)]
+
+            has_answer_from_learner = question.has_answer_from(learner)
+
+            patched_is_selected_by.assert_has_calls(expected_calls)
+            self.assertEqual(has_answer_from_learner, expected_answer_status)
+
 
 @ddt.ddt
 class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
@@ -558,7 +849,57 @@ class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
         score = RankingQuestion._get_score(answer_value)
         self.assertEqual(score, expected_score)
 
+    @ddt.data(
+        ((False, False, False, False), False),  # No answers (learner did not rank any options)
+        ((False, False, False, True), False),   # Learner ranked 1 out of 2 options to rank
+                                                # (0 regular options, 1 fallback option)
+        ((False, False, True, False), False),   # Learner ranked 1 out of 2 options to rank
+                                                # (0 regular options, 1 fallback option)
+        ((False, False, True, True), True),     # Learner ranked 2 out of 2 options to rank
+                                                # (0 regular options, 2 fallback options)
+        ((False, True, False, False), False),   # Learner ranked 1 out of 2 options to rank
+                                                # (1 regular option, 0 fallback options)
+        ((False, True, False, True), True),     # Learner ranked 2 out of 2 options to rank
+                                                # (1 regular option, 1 fallback option)
+        ((False, True, True, False), True),     # Learner ranked 2 out of 2 options to rank
+                                                # (1 regular option, 1 fallback option)
+        ((True, False, False, False), False),   # Learner ranked 1 out of 2 options to rank
+                                                # (1 regular option, 0 fallback options)
+        ((True, False, False, True), True),     # Learner ranked 2 out of 2 options to rank
+                                                # (1 regular option, 1 fallback option)
+        ((True, False, True, False), True),     # Learner ranked 2 out of 2 options to rank
+                                                # (1 regular option, 1 fallback option)
+        ((True, True, False, False), True),     # Learner ranked 2 out of 2 options to rank
+                                                # (2 regular options, 0 fallback options)
+    )
+    @ddt.unpack
+    def test_has_answer_from(self, answer_option_selection_status, expected_answer_status):
+        """
+        Test that `has_answer_from` method returns appropriate value
+        based on number of answer options that learner selected for multiple choice question.
 
+        For ranking questions, learner must rank required number of answer options
+        (as specified by `number_of_options_to_rank`) for the LPD to consider the question answered.
+        """
+        learner = UserFactory()
+        question = self.question_factory(
+            question_text='How many options will you select?',
+            number_of_options_to_rank=2
+        )
+        self._create_answer_options(
+            question, ('A', 'B', 'C', 'D'), fallback_options=(False, False, True, True)
+        )
+        with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
+            patched_is_selected_by.side_effect = answer_option_selection_status
+            expected_calls = len(answer_option_selection_status) * [call(learner)]
+
+            has_answer_from_learner = question.has_answer_from(learner)
+
+            patched_is_selected_by.assert_has_calls(expected_calls)
+            self.assertEqual(has_answer_from_learner, expected_answer_status)
+
+
+@ddt.ddt
 class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
     """LikertScaleQuestion model tests."""
 
@@ -593,7 +934,41 @@ class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
         with self.assertRaises(NotImplementedError):
             LikertScaleQuestion._get_score(42)
 
+    @ddt.data(
+        ((False, False, False), 1, False),  # No answers
+        ((False, False, True), 1, False),   # No answers for regular options
+        ((False, True, False), 1, False),   # Learner provided answer for 1 out of 2 regular options
+        ((False, True, True), 1, False),    # Learner provided answer for 1 out of 2 regular options
+                                            # and 1 fallback option
+        ((True, False, False), 2, False),   # Learner provided answer for 1 out of 2 regular options
+        ((True, False, True), 2, False),    # Learner provided answer for 1 out of 2 regular options
+                                            # and 1 fallback option
+        ((True, True, False), 2, True),     # Learner provided answer for 2 out of 2 regular options
+        ((True, True, True), 2, True),      # Learner provided answer for 2 out of 2 regular options
+                                            # and 1 fallback option
+    )
+    @ddt.unpack
+    def test_has_answer_from(self, answer_option_selection_status, expected_checks, expected_answer_status):
+        """
+        Test that `has_answer_from` method returns appropriate value
+        based on number of answer options that learner selected for multiple choice question.
 
+        For Likert scale questions, learner must select value for each answer option
+        (except for fallback options) for the LPD to consider the question answered.
+        """
+        learner = UserFactory()
+        self._create_answer_options(self.question, ('A', 'B', 'C'), fallback_options=(False, False, True))
+        with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
+            patched_is_selected_by.side_effect = answer_option_selection_status
+            expected_calls = expected_checks * [call(learner)]
+
+            has_answer_from_learner = self.question.has_answer_from(learner)
+
+            patched_is_selected_by.assert_has_calls(expected_calls)
+            self.assertEqual(has_answer_from_learner, expected_answer_status)
+
+
+@ddt.ddt
 class AnswerOptionTests(TestCase):
     """AnswerOption model tests."""
 
@@ -636,6 +1011,44 @@ class AnswerOptionTests(TestCase):
             'custom_input': answer.custom_input
         }
         self.assertEqual(self.answer_option.get_data(learner), expected_data)
+
+    @ddt.data(
+        (MultipleChoiceQuestionFactory, None, False),
+        (RankingQuestionFactory, None, False),
+        (LikertScaleQuestionFactory, None, False),
+        (MultipleChoiceQuestionFactory, {'value': 0, 'custom_input': ''}, False),
+        (MultipleChoiceQuestionFactory, {'value': 0, 'custom_input': 'Yellow'}, False),
+        (MultipleChoiceQuestionFactory, {'value': 1, 'custom_input': ''}, True),
+        (MultipleChoiceQuestionFactory, {'value': 1, 'custom_input': 'Purple'}, True),
+        (RankingQuestionFactory, {'value': 2, 'custom_input': ''}, True),
+        (RankingQuestionFactory, {'value': 2, 'custom_input': 'Green'}, True),
+        (RankingQuestionFactory, {'value': 5, 'custom_input': ''}, False),  # Mock default for unranked options
+        (RankingQuestionFactory, {'value': 5, 'custom_input': 'Blue'}, False),  # Mock default for unranked options
+        (LikertScaleQuestionFactory, {'value': 1, 'custom_input': ''}, True),
+        (LikertScaleQuestionFactory, {'value': 1, 'custom_input': 'Red'}, True),
+    )
+    @ddt.unpack
+    def test_is_selected_by(self, question_factory, answer_data, expected_selection_status):
+        """
+        Test that `is_selected_by` method returns appropriate value
+        based on `answer_data` for answer option.
+        """
+        learner = UserFactory()
+        question = question_factory()
+        answer_option = AnswerOption.objects.create(content_object=question)
+
+        with patch('lpd.models.AnswerOption.get_data') as patched_get_data, \
+                patch('lpd.models.RankingQuestion.unranked_option_value') as patched_unranked_option_value:
+            patched_get_data.return_value = answer_data
+            patched_unranked_option_value.return_value = 5
+
+            selected_by_learner = answer_option.is_selected_by(learner)
+
+            patched_get_data.assert_called_once_with(learner)
+            if question_factory == RankingQuestionFactory and answer_data is not None:
+                patched_unranked_option_value.assert_called_once_with()
+
+            self.assertEqual(selected_by_learner, expected_selection_status)
 
 
 class QualitativeAnswerTests(TestCase):

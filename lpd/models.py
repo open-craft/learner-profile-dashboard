@@ -37,6 +37,20 @@ class LearnerProfileDashboard(models.Model):
         """
         return reverse('lpd:view', kwargs=dict(pk=self.id))
 
+    def get_percent_complete(self, learner):
+        """
+        Return completion status of `learner` for this LPD.
+        """
+        num_sections = self.sections.count()
+        if num_sections == 0:
+            return 0.
+        section_weight = 1. / num_sections
+        percent_complete = sum(
+            section_weight * section.get_percent_complete(learner)
+            for section in self.sections.iterator()
+        )
+        return percent_complete
+
 
 class Section(OrderedModel):
     """
@@ -78,12 +92,27 @@ class Section(OrderedModel):
         Return list of all questions belonging to this section, irrespective of their type.
         """
         return sorted(
-            list(self.qualitativequestion_set.all()) +
-            list(self.multiplechoicequestion_set.all()) +
-            list(self.rankingquestion_set.all()) +
-            list(self.likertscalequestion_set.all()),
+            list(itertools.chain(
+                self.qualitativequestion_set.iterator(),
+                self.multiplechoicequestion_set.iterator(),
+                self.rankingquestion_set.iterator(),
+                self.likertscalequestion_set.iterator(),
+            )),
             key=lambda q: q.number
         )
+
+    def get_percent_complete(self, learner):
+        """
+        Return completion status of `learner` for this section.
+        """
+        num_questions = len(self.questions)
+        if num_questions == 0:
+            return 0.
+        num_answered_questions = sum(
+            question.has_answer_from(learner) for question in self.questions
+        )
+        percent_complete = 100. * num_answered_questions / num_questions
+        return percent_complete
 
 
 class Question(models.Model):
@@ -132,6 +161,15 @@ class Question(models.Model):
         where X represents 1-based `order` of parent section and Y represents `number` of this question.
         """
         return '{section}.{number}'.format(section=self.section.order + 1, number=self.number)
+
+    def has_answer_from(self, learner):
+        """
+        Return True if this question has been answered by `learner`, and False if it hasn't.
+
+        What constitutes an answer differs based on question type.
+        Subclasses representing different types of questions are responsible for providing appropriate behavior.
+        """
+        raise NotImplementedError
 
 
 class QualitativeQuestion(Question):
@@ -232,6 +270,14 @@ class QualitativeQuestion(Question):
 
         return scores
 
+    def has_answer_from(self, learner):
+        """
+        Return True if this question has been answered by `learner`, and False if it hasn't.
+
+        For qualitative questions, any text submitted by the learner counts as an answer.
+        """
+        return not self.get_answer(learner) == ''
+
 
 class QuantitativeQuestion(Question):
     """
@@ -256,6 +302,15 @@ class QuantitativeQuestion(Question):
     def type(self):
         """
         Return string that specifies the exact type of this question.
+        """
+        raise NotImplementedError
+
+    def has_answer_from(self, learner):
+        """
+        Return True if this question has been answered by `learner`, and False if it hasn't.
+
+        What constitutes an answer differs based on question type.
+        Subclasses representing different types of questions are responsible for providing appropriate behavior.
         """
         raise NotImplementedError
 
@@ -377,6 +432,17 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
         assert answer_value == 0 or answer_value == 1
         return answer_value ^ 1
 
+    def has_answer_from(self, learner):
+        """
+        Return True if this question has been answered by `learner`, and False if it hasn't.
+
+        For multiple choice questions, learner must select at least one answer option
+        for the LPD to consider the question answered.
+        """
+        return any(
+            answer_option.is_selected_by(learner) for answer_option in self.answer_options.all()
+        )
+
 
 class RankingQuestion(QuantitativeQuestion):
     """
@@ -452,6 +518,28 @@ class RankingQuestion(QuantitativeQuestion):
         theoretical_max = cls.unranked_option_value()
         return (answer_value - theoretical_min) / (theoretical_max - theoretical_min)
 
+    def has_answer_from(self, learner):
+        """
+        Return True if this question has been answered by `learner`, and False if it hasn't.
+
+        For ranking questions, learner must rank required number of answer options
+        (as specified by `number_of_options_to_rank`) for the LPD to consider the question answered.
+
+        The logic for determining whether a ranking question has been answered
+        does not treat fallback options differently.
+        For example, if the number of options to rank for a given question is 3
+        and the learner ranked 3 three options, this method will consider it answered
+        if any of the following is true:
+
+        - Learner ranked 3 regular options.
+        - Learner ranked 2 regular options and 1 fallback option.
+        - Learner ranked 1 regular option and 2 fallback options.
+        - Learner ranked 3 fallback options.
+        """
+        return sum(
+            answer_option.is_selected_by(learner) for answer_option in self.answer_options.all()
+        ) == self.number_of_options_to_rank
+
 
 class LikertScaleQuestion(QuantitativeQuestion):
     """
@@ -499,6 +587,18 @@ class LikertScaleQuestion(QuantitativeQuestion):
         so this remains a stub for now.
         """
         raise NotImplementedError
+
+    def has_answer_from(self, learner):
+        """
+        Return True if this question has been answered by `learner`, and False if it hasn't.
+
+        For Likert scale questions, learner must select value for each answer option
+        (except for fallback options) for the LPD to consider the question answered.
+        """
+        regular_options = self.answer_options.filter(fallback_option=False)
+        return all(
+            answer_option.is_selected_by(learner) for answer_option in regular_options
+        )
 
 
 class AnswerOption(models.Model):
@@ -574,6 +674,51 @@ class AnswerOption(models.Model):
                 'value': answer.value,
                 'custom_input': answer.custom_input or ''
             }
+
+    def is_selected_by(self, learner):
+        """
+        Return True if current state is such that `learner` selected this answer option, else False.
+
+        Conditions under which this method will return False:
+
+        - No answer data exists for this answer option and `learner`.
+          This will apply if:
+          - Answer option belongs to multiple choice question that has never been answered by `learner`.
+          - Answer option belongs to ranking question that has never been answered by `learner`.
+          - Answer option belongs to Likert scale question and has never been ranked by `learner`.
+            (Note that this doesn't mean that `learner` never ranked *any* answer options
+            belonging to parent question. They might - or might not - have partially answered
+            the parent question in the past, by ranking other answer options belonging to that question.)
+        - The parent question of this answer option is a ranking question,
+          and `learner` left this option unranked in their most recent submission
+          that included answer data for the parent question of this answer option.
+          In this case the answer value associated with this answer option
+          is set to the default value for unranked answer options,
+          i.e., `RankingQuestion.unranked_option_value`.
+        - The parent question of this answer option is a multiple choice question,
+          and `learner` left this option unchecked in their most recent submission
+          that included answer data for the parent question of this answer option.
+          In this case the answer value associated with this answer option
+          is set to 0.
+
+        Note that it is not possible for `learner` to unrank an answer option belonging to a Likert scale question.
+        This means that an answer option belonging to a Likert scale question
+        either has no answer data associated with it (if the `learner` never ranked it),
+        or has an answer value that is greater than zero. (Numerical values for answer option ranges
+        for Likert scale questions always start at 1.) As a result, we don't need to perform
+        any special-case checks for answer values of Likert scale questions below.
+        """
+        answer_data = self.get_data(learner)
+
+        if answer_data is None:
+            return False
+
+        answer_value = answer_data['value']
+
+        if self.content_object.type == QuestionTypes.RANKING:
+            return not answer_value == RankingQuestion.unranked_option_value()
+
+        return not answer_value == 0
 
 
 class Answer(models.Model):

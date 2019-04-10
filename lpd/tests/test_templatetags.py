@@ -11,18 +11,59 @@ from pytz import utc
 
 from lpd.models import AnswerOption
 from lpd.templatetags.lpd_filters import likert_range, ranking_range, render_custom_formatting
-from lpd.templatetags.lpd_tags import get_answer, get_data, get_last_update
-from lpd.tests.factories import QualitativeQuestionFactory, SectionFactory, SubmissionFactory, UserFactory
+from lpd.templatetags.lpd_tags import get_percent_complete, get_answer, get_data, get_last_update
+from lpd.tests.factories import (
+    LearnerProfileDashboardFactory,
+    QualitativeQuestionFactory,
+    SectionFactory,
+    SubmissionFactory,
+    UserFactory
+)
 from lpd.tests.test_models import QUANTITATIVE_QUESTION_FACTORIES
 
 
 # Classes
 
+@ddt.ddt
 class TemplateTagsTests(TestCase):
     """Tests for custom template tags."""
 
     def setUp(self):
         self.learner = UserFactory()
+
+    @ddt.data(
+        (0, '0%'),
+        (0., '0%'),
+        (0.123, '0%'),
+        (0.987, '1%'),
+        (14, '14%'),
+        (14., '14%'),
+        (14.3456, '14%'),
+        (14.8765, '15%'),
+        (70, '70%'),
+        (70., '70%'),
+        (70.23456, '70%'),
+        (70.76543, '71%'),
+        (100, '100%'),
+        (100., '100%'),
+    )
+    @ddt.unpack
+    def test_get_percent_complete(self, component_percent_complete, expected_percent_complete):
+        """
+        Test that `get_percent_complete` correctly formats LPD and section-level completeness.
+        """
+        lpd = LearnerProfileDashboardFactory()
+        section = SectionFactory(lpd=lpd)
+        with patch('lpd.models.LearnerProfileDashboard.get_percent_complete') as patched_lpd_get_percent_complete, \
+                 patch('lpd.models.Section.get_percent_complete') as patched_section_get_percent_complete:
+            patched_lpd_get_percent_complete.return_value = component_percent_complete
+            patched_section_get_percent_complete.return_value = component_percent_complete
+            lpd_percent_complete = get_percent_complete(lpd, self.learner)
+            section_percent_complete = get_percent_complete(section, self.learner)
+            patched_lpd_get_percent_complete.assert_called_once_with(self.learner)
+            patched_section_get_percent_complete.assert_called_once_with(self.learner)
+            self.assertEqual(lpd_percent_complete, expected_percent_complete)
+            self.assertEqual(section_percent_complete, expected_percent_complete)
 
     def test_get_last_update(self):
         """

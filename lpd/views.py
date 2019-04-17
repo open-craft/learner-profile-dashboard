@@ -18,11 +18,13 @@ from lpd.client import AdaptiveEngineAPIClient
 from lpd.models import (
     AnswerOption,
     LearnerProfileDashboard,
-    LearnerProfileDashboardForm,
+    LikertScaleQuestion,
+    MultipleChoiceQuestion,
     QualitativeAnswer,
     QualitativeQuestion,
     QuantitativeAnswer,
     QuantitativeQuestion,
+    RankingQuestion,
     Score,
     Section,
     Submission,
@@ -42,7 +44,7 @@ class LPDView(DetailView):
     Display specific LPD to learner.
     """
     model = LearnerProfileDashboard
-    template_name = 'lpd.html'
+    template_name = 'lpd-view.html'
 
     def get_context_data(self, **kwargs):
         """
@@ -55,6 +57,53 @@ class LPDView(DetailView):
         context['learner'] = learner
         context['lpd'] = lpd
         return context
+
+
+class QuestionView(DetailView):
+    """
+    Base class defining common logic for displaying specific question to learner.
+    """
+    template_name = 'question-view.html'
+
+    def get_context_data(self, **kwargs):
+        """
+        Collect necessary information for displaying question.
+        """
+        context = super(QuestionView, self).get_context_data(**kwargs)
+        learner = User.objects.get(username=self.request.user.username)
+        question_pk = self.kwargs.get('pk')
+        question = self.model.objects.get(pk=question_pk)
+        context['learner'] = learner
+        context['question'] = question
+        return context
+
+
+class QualitativeQuestionView(QuestionView):
+    """
+    Display specific qualitative question to learner.
+    """
+    model = QualitativeQuestion
+
+
+class MultipleChoiceQuestionView(QuestionView):
+    """
+    Display specific multiple choice question to learner.
+    """
+    model = MultipleChoiceQuestion
+
+
+class RankingQuestionView(QuestionView):
+    """
+    Display specific ranking question to learner.
+    """
+    model = RankingQuestion
+
+
+class LikertScaleQuestionView(QuestionView):
+    """
+    Display specific Likert scale question to learner.
+    """
+    model = LikertScaleQuestion
 
 
 class LPDSubmitView(View):
@@ -307,11 +356,3 @@ class LPDSubmitView(View):
         )
         log.info('Date and time of latest submission: %s.', submission.updated.strftime('%m/%d/%Y at %I:%M %p (UTC)'))
         return get_last_update(section, user)
-
-
-class LearnerProfileDashboardViewMixin(object):
-    """
-    Mixin for CRUD views for Learner Profile Dashboard.
-    """
-    model = LearnerProfileDashboard
-    form_class = LearnerProfileDashboardForm

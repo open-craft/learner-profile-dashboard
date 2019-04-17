@@ -5,7 +5,6 @@ Models for Learner Profile Dashboard
 import itertools
 import re
 
-from django import forms
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
@@ -27,7 +26,7 @@ class LearnerProfileDashboard(models.Model):
     modified_at = models.DateTimeField(auto_now=True, editable=False)
 
     def __unicode__(self):
-        return self.name
+        return 'LPD {id}: {name}'.format(id=self.id, name=self.name)
 
     def __str__(self):
         return unicode(self).encode('utf-8')
@@ -37,15 +36,6 @@ class LearnerProfileDashboard(models.Model):
         Return URL for viewing details about a specific Learner Profile Dashboard instance.
         """
         return reverse('lpd:view', kwargs=dict(pk=self.id))
-
-
-class LearnerProfileDashboardForm(forms.ModelForm):
-    """
-    Form for creating an instance of the Learner Profile Dashboard.
-    """
-    class Meta:
-        model = LearnerProfileDashboard
-        fields = ['name']
 
 
 class Section(OrderedModel):
@@ -78,7 +68,9 @@ class Section(OrderedModel):
         pass
 
     def __unicode__(self):
-        return 'Section {id}: {title}'.format(id=self.id, title=self.title or '<title not set>')
+        return '{lpd} > Section {id}: {title}'.format(
+            lpd=str(self.lpd), id=self.id, title=self.title or '<title not set>'
+        )
 
     @property
     def questions(self):
@@ -172,7 +164,15 @@ class QualitativeQuestion(Question):
     )
 
     def __unicode__(self):
-        return 'QualitativeQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > QualitativeQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
+
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific qualitative question.
+        """
+        return reverse('lpd:qualitative-question', kwargs=dict(pk=self.id))
 
     @property
     def type(self):
@@ -331,7 +331,15 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
     )
 
     def __unicode__(self):
-        return 'MultipleChoiceQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > MultipleChoiceQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
+
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific multiple choice question.
+        """
+        return reverse('lpd:multiple-choice-question', kwargs=dict(pk=self.id))
 
     @property
     def type(self):
@@ -381,7 +389,15 @@ class RankingQuestion(QuantitativeQuestion):
     )
 
     def __unicode__(self):
-        return 'RankingQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > RankingQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
+
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific ranking question.
+        """
+        return reverse('lpd:ranking-question', kwargs=dict(pk=self.id))
 
     @property
     def type(self):
@@ -457,7 +473,15 @@ class LikertScaleQuestion(QuantitativeQuestion):
     )
 
     def __unicode__(self):
-        return 'LikertScaleQuestion {id}: {text}'.format(id=self.id, text=self.question_text)
+        return '{section} > LikertScaleQuestion {id}: {text}'.format(
+            section=str(self.section), id=self.id, text=self.question_text
+        )
+
+    def get_absolute_url(self):
+        """
+        Return URL for viewing details about a specific Likert scale question.
+        """
+        return reverse('lpd:likert-scale-question', kwargs=dict(pk=self.id))
 
     @property
     def type(self):
@@ -529,7 +553,9 @@ class AnswerOption(models.Model):
         ordering = ["-option_text"]
 
     def __unicode__(self):
-        return 'AnswerOption {id}: {text}'.format(id=self.id, text=self.option_text)
+        return '{question} > AnswerOption {id}: {text}'.format(
+            question=str(self.content_object), id=self.id, text=self.option_text
+        )
 
     def get_data(self, learner):
         """
@@ -627,7 +653,17 @@ class KnowledgeComponent(models.Model):
     )
 
     def __unicode__(self):
-        return 'KnowledgeComponent {id}: {kc_id}, {kc_name}'.format(id=self.id, kc_id=self.kc_id, kc_name=self.kc_name)
+        kc_info = 'KnowledgeComponent {id}: {kc_id}, {kc_name}'.format(
+            id=self.id, kc_id=self.kc_id, kc_name=self.kc_name
+        )
+        try:
+            answer_option = str(self.answer_option)
+        except AnswerOption.DoesNotExist:
+            return kc_info
+        else:
+            return '{kc_info} (associated with {answer_option})'.format(
+                kc_info=kc_info, answer_option=answer_option
+            )
 
 
 class Score(models.Model):

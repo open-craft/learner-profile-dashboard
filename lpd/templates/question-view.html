@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% load lpd_tags %}
+
+{% block content %}
+  <div id="view-question">
+    <form id="question-form"
+          action="#form"
+          method="post"
+          enctype="multipart/form-data"
+          data-section-id="{{ question.section.id }}">
+
+      {% csrf_token %}
+
+      {% with question_template="question.html" %}
+        {% include question_template with question=question %}
+      {% endwith %}
+
+      <div class="question-controls">
+        <p class="submit-instructions">
+          Don’t forget to submit! Your answer will not be saved until you click the submit button below.
+        </p>
+        <button type="submit" class="question-submit">
+          Submit your answer
+        </button>
+        {% get_last_update question.section learner as last_update %}
+        <span class="submission-info" data-last-update="{{ last_update }}"></span>
+      </div>
+
+    </form>
+  </div>
+{% endblock content %}

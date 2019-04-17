@@ -66,8 +66,8 @@ class LearnerProfileDashboardTests(TestCase):
         """
         Test string representation of `LearnerProfileDashboard` model.
         """
-        lpd = LearnerProfileDashboard(name='Empty LPD')
-        self.assertEqual(str(lpd), 'Empty LPD')
+        lpd = LearnerProfileDashboardFactory(name='Empty LPD')
+        self.assertEqual(str(lpd), 'LPD 1: Empty LPD')
 
 
 class SectionTests(TestCase):
@@ -81,7 +81,7 @@ class SectionTests(TestCase):
         Test string representation of `Section` model.
         """
         section = SectionFactory(lpd=self.lpd, title='Basic information')
-        self.assertEqual(str(section), 'Section 1: Basic information')
+        self.assertEqual(str(section), 'LPD 1: Test LPD > Section 1: Basic information')
 
     def test_questions(self):
         """
@@ -121,21 +121,27 @@ class QuestionTests(TestCase):
                     self.assertEqual(question.section_number, '{}.{}'.format(section.order+1, question.number))
 
 
-@ddt.ddt
+@ddt.ddt  # pylint: disable=too-many-instance-attributes
 class QualitativeQuestionTests(TestCase):
     """QualitativeQuestion model tests."""
 
     def setUp(self):
-        qualitative_question_1 = QualitativeQuestionFactory(
+        lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        section = SectionFactory(lpd=lpd, title='Test section')
+
+        self.qualitative_question_1 = QualitativeQuestionFactory(
+            section=section,
             question_text='Is this a qualitative question?',
             influences_group_membership=True,
         )
-        qualitative_question_2 = QualitativeQuestionFactory(
+        self.qualitative_question_2 = QualitativeQuestionFactory(
+            section=section,
             question_text='Is this another qualitative question?',
             influences_group_membership=True,
         )
-        qualitative_question_3 = QualitativeQuestionFactory(
-            question_text='Is this another qualitative question?',
+        self.qualitative_question_3 = QualitativeQuestionFactory(
+            section=section,
+            question_text='Is this yet another qualitative question?',
             influences_group_membership=False,
         )
 
@@ -162,27 +168,27 @@ class QualitativeQuestionTests(TestCase):
 
         QualitativeAnswerFactory(
             learner=self.learner_1,
-            question=qualitative_question_1,
+            question=self.qualitative_question_1,
             text=self.learner_1_answer_to_question_1,
         )
         QualitativeAnswerFactory(
             learner=self.learner_1,
-            question=qualitative_question_2,
+            question=self.qualitative_question_2,
             text=self.learner_1_answer_to_question_2,
         )
         QualitativeAnswerFactory(
             learner=self.learner_1,
-            question=qualitative_question_3,
+            question=self.qualitative_question_3,
             text=learner_1_answer_to_question_3,
         )
         QualitativeAnswerFactory(
             learner=self.learner_2,
-            question=qualitative_question_1,
+            question=self.qualitative_question_1,
             text=self.learner_2_answer_to_question_1,
         )
         QualitativeAnswerFactory(
             learner=self.learner_2,
-            question=qualitative_question_3,
+            question=self.qualitative_question_3,
             text=learner_2_answer_to_question_3,
         )
 
@@ -190,10 +196,20 @@ class QualitativeQuestionTests(TestCase):
         """
         Test string representation of `QualitativeQuestion` model.
         """
-        qualitative_question = QualitativeQuestionFactory(question_text='Is this a qualitative question?',)
         self.assertEqual(
-            str(qualitative_question),
-            'QualitativeQuestion {id}: Is this a qualitative question?'.format(id=qualitative_question.id)
+            str(self.qualitative_question_1),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'QualitativeQuestion 1: Is this a qualitative question?'
+        )
+        self.assertEqual(
+            str(self.qualitative_question_2),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'QualitativeQuestion 2: Is this another qualitative question?'
+        )
+        self.assertEqual(
+            str(self.qualitative_question_3),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'QualitativeQuestion 3: Is this yet another qualitative question?'
         )
 
     def test_type(self):
@@ -386,6 +402,10 @@ class QuantitativeQuestionTests(TestCase):
 class QuantitativeQuestionTestMixin(object):
     """Mixin for tests targeting QuantitativeQuestion models."""
 
+    def setUp(self):  # pylint: disable=missing-docstring
+        lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        self.section = SectionFactory(lpd=lpd, title='Test section')
+
     def test_get_answer_options(self):
         """
         Test that `get_answer_options` returns answer options in appropriate order.
@@ -431,27 +451,44 @@ class QuantitativeQuestionTestMixin(object):
 
 
 @ddt.ddt
-class MultipleChoiceQuestionTests(TestCase, QuantitativeQuestionTestMixin):
+class MultipleChoiceQuestionTests(QuantitativeQuestionTestMixin, TestCase):
     """MultipleChoiceQuestion model tests."""
 
     def setUp(self):
+        super(MultipleChoiceQuestionTests, self).setUp()
         self.question_factory = MultipleChoiceQuestionFactory
+        self.mcq = self.question_factory(
+            section=self.section,
+            question_text='Is this a multiple choice question?',
+            max_options_to_select=1
+        )
+        self.mrq = self.question_factory(
+            section=self.section,
+            question_text='Is this a multiple response question?',
+            max_options_to_select=5
+        )
 
     def test_str(self):
         """
         Test string representation of `MultipleChoiceQuestion` model.
         """
-        question = self.question_factory(question_text='Is this a multiple choice question?')
-        self.assertEqual(str(question), 'MultipleChoiceQuestion 1: Is this a multiple choice question?')
+        self.assertEqual(
+            str(self.mcq),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'MultipleChoiceQuestion 1: Is this a multiple choice question?'
+        )
+        self.assertEqual(
+            str(self.mrq),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'MultipleChoiceQuestion 2: Is this a multiple response question?'
+        )
 
     def test_type(self):
         """
         Test that `type` property returns appropriate value.
         """
-        mcq = self.question_factory(max_options_to_select=1)
-        mrq = self.question_factory(max_options_to_select=5)
-        self.assertEqual(mcq.type, QuestionTypes.MCQ)
-        self.assertEqual(mrq.type, QuestionTypes.MRQ)
+        self.assertEqual(self.mcq.type, QuestionTypes.MCQ)
+        self.assertEqual(self.mrq.type, QuestionTypes.MRQ)
 
     @ddt.data(
         (0, 1),
@@ -471,25 +508,33 @@ class MultipleChoiceQuestionTests(TestCase, QuantitativeQuestionTestMixin):
 
 
 @ddt.ddt
-class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
+class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
     """RankingQuestion model tests."""
 
     def setUp(self):
+        super(RankingQuestionTests, self).setUp()
         self.question_factory = RankingQuestionFactory
+        self.question = self.question_factory(
+            section=self.section,
+            question_text='Is this a ranking question?',
+            number_of_options_to_rank=3
+        )
 
     def test_str(self):
         """
         Test string representation of `RankingQuestion` model.
         """
-        question = self.question_factory(question_text='Is this a ranking question?')
-        self.assertEqual(str(question), 'RankingQuestion 1: Is this a ranking question?')
+        self.assertEqual(
+            str(self.question),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'RankingQuestion 1: Is this a ranking question?'
+        )
 
     def test_type(self):
         """
         Test that `type` property returns appropriate value.
         """
-        question = self.question_factory()
-        self.assertEqual(question.type, QuestionTypes.RANKING)
+        self.assertEqual(self.question.type, QuestionTypes.RANKING)
 
     def test_unranked_option_value(self):
         """
@@ -510,30 +555,36 @@ class RankingQuestionTests(TestCase, QuantitativeQuestionTestMixin):
         """
         Test that `_get_score` returns appropriate score.
         """
-        self.question_factory(number_of_options_to_rank=3)
         score = RankingQuestion._get_score(answer_value)
         self.assertEqual(score, expected_score)
 
 
-class LikertScaleQuestionTests(TestCase, QuantitativeQuestionTestMixin):
+class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
     """LikertScaleQuestion model tests."""
 
     def setUp(self):
+        super(LikertScaleQuestionTests, self).setUp()
         self.question_factory = LikertScaleQuestionFactory
+        self.question = self.question_factory(
+            section=self.section,
+            question_text='Is this a Likert scale question?',
+        )
 
     def test_str(self):
         """
         Test string representation of `LikertScaleQuestion` model.
         """
-        question = self.question_factory(question_text='Is this a Likert scale question?')
-        self.assertEqual(str(question), 'LikertScaleQuestion 1: Is this a Likert scale question?')
+        self.assertEqual(
+            str(self.question),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'LikertScaleQuestion 1: Is this a Likert scale question?'
+        )
 
     def test_type(self):
         """
         Test that `type` property returns appropriate value.
         """
-        question = self.question_factory()
-        self.assertEqual(question.type, QuestionTypes.LIKERT)
+        self.assertEqual(self.question.type, QuestionTypes.LIKERT)
 
     def test__get_score(self):
         """
@@ -546,25 +597,37 @@ class LikertScaleQuestionTests(TestCase, QuantitativeQuestionTestMixin):
 class AnswerOptionTests(TestCase):
     """AnswerOption model tests."""
 
+    def setUp(self):
+        lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        section = SectionFactory(lpd=lpd, title='Test section')
+        question = MultipleChoiceQuestionFactory(
+            section=section,
+            question_text='Is this a multiple choice question?',
+        )
+        self.answer_option = AnswerOption.objects.create(
+            content_object=question, option_text='This is not an option.'
+        )
+
     def test_str(self):
         """
         Test string representation of `LikertScaleQuestion` model.
         """
-        question = MultipleChoiceQuestionFactory()
-        answer_option = AnswerOption.objects.create(content_object=question, option_text='This is not an option.')
-        self.assertEqual(str(answer_option), 'AnswerOption 1: This is not an option.')
+        self.assertEqual(
+            str(self.answer_option),
+            'LPD 1: Test LPD > Section 1: Test section > '
+            'MultipleChoiceQuestion 1: Is this a multiple choice question? > '
+            'AnswerOption 1: This is not an option.'
+        )
 
     def test_get_data(self):
         """
         Test that `get_data` returns appropriate data.
         """
-        question = MultipleChoiceQuestionFactory()
         learner = UserFactory()
-        answer_option = AnswerOption.objects.create(content_object=question, option_text='This is not an option.')
-        self.assertIsNone(answer_option.get_data(learner))
+        self.assertIsNone(self.answer_option.get_data(learner))
         answer = QuantitativeAnswer.objects.create(
             learner=learner,
-            answer_option=answer_option,
+            answer_option=self.answer_option,
             value=1,
             custom_input="I'm still providing custom input",
         )
@@ -572,7 +635,7 @@ class AnswerOptionTests(TestCase):
             'value': answer.value,
             'custom_input': answer.custom_input
         }
-        self.assertEqual(answer_option.get_data(learner), expected_data)
+        self.assertEqual(self.answer_option.get_data(learner), expected_data)
 
 
 class QualitativeAnswerTests(TestCase):
@@ -618,8 +681,28 @@ class KnowledgeComponentTests(TestCase):
         """
         Test string representation of `KnowledgeComponent` model.
         """
+        # Test string representation of knowledge component that is not associated with an answer option
         knowledge_component = KnowledgeComponent.objects.create(kc_id='test_id', kc_name='test_name')
         self.assertEqual(str(knowledge_component), 'KnowledgeComponent 1: test_id, test_name')
+
+        # Test string representation of knowledge component that is associated with an answer option
+        lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        section = SectionFactory(lpd=lpd, title='Test section')
+        question = MultipleChoiceQuestionFactory(
+            section=section,
+            question_text='Is this a multiple choice question?',
+        )
+        AnswerOption.objects.create(
+            content_object=question, option_text='This is not an option.',
+            knowledge_component=knowledge_component
+        )
+        self.assertEqual(
+            str(knowledge_component),
+            'KnowledgeComponent 1: test_id, test_name '
+            '(associated with LPD 1: Test LPD > Section 1: Test section > '
+            'MultipleChoiceQuestion 1: Is this a multiple choice question? > '
+            'AnswerOption 1: This is not an option.)'
+        )
 
 
 class ScoreTests(TestCase):
@@ -639,7 +722,7 @@ class SubmissionTests(UserSetupMixin, TestCase):
     """Submission model tests."""
 
     def setUp(self):
-        self.section = SectionFactory(title='Basic information')
+        self.section = SectionFactory(title='Test section')
         super(SubmissionTests, self).setUp()
 
     def test_str(self):
@@ -647,7 +730,7 @@ class SubmissionTests(UserSetupMixin, TestCase):
         Test string representation of `Submission` model.
         """
         submission = SubmissionFactory(section=self.section, learner=self.student_user)
-        self.assertEqual(str(submission), 'Submission 1: Basic information, student_user')
+        self.assertEqual(str(submission), 'Submission 1: Test section, student_user')
 
     def test_get_last_update(self):
         """

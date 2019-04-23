@@ -59,7 +59,9 @@ $(document).ready(function() {
                 lastUpdate = $submissionInfo.data('last-update'),
                 $submissionForm = $submissionInfo.parents('form'),
                 data = {
-                    'last_update': lastUpdate
+                    'last_update': {
+                        'timestamp': lastUpdate
+                    }
                 };
             updateSubmissionInfo($submissionForm, data);
         });
@@ -182,7 +184,7 @@ $(document).ready(function() {
 
     var updateSubmissionInfo = function($submissionForm, data) {
         var $submissionInfo = $submissionForm.find('.submission-info'),
-            lastUpdate = data.last_update;
+            lastUpdate = data.last_update.timestamp;
         $submissionInfo.text(formatLastUpdate(lastUpdate));
     };
 
@@ -199,6 +201,17 @@ $(document).ready(function() {
         return 'Submitted on ' + date + ' at ' + time;
     };
 
+    var updateCompletionInfo = function($submissionForm, data) {
+        var $parentLPD = $submissionForm.parents('#view-lpd'),
+            $profileCompleteness = $parentLPD.find('.profile-completeness'),
+            $sectionCompleteness = $submissionForm.find('.section-completeness');
+
+        $profileCompleteness.text('(' + data.last_update.completion_percentages.profile + ' complete)');
+        $sectionCompleteness.text(data.last_update.completion_percentages.section + ' complete');
+    };
+
+
+    // Event handlers
 
     $('.question').change(function(e) {
         $(this).data('answer-changed', true);
@@ -232,6 +245,7 @@ $(document).ready(function() {
                 console.log(data);
                 resetQuestionState($submissionForm);
                 updateSubmissionInfo($submissionForm, data);
+                updateCompletionInfo($submissionForm, data);
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.log('ERROR');

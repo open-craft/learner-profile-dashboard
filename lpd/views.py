@@ -29,7 +29,7 @@ from lpd.models import (
     Section,
     Submission,
 )
-from lpd.templatetags.lpd_tags import get_last_update
+from lpd.templatetags.lpd_tags import get_last_update, get_percent_complete
 
 
 # Globals
@@ -343,9 +343,10 @@ class LPDSubmitView(View):
     @classmethod
     def _process_submission(cls, user, section_id):
         """
-        Update date and time at which `user` last submitted section identified by `section_id`
-        and return it.
+        Update date and time at which `user` last submitted section identified by `section_id` and return it,
+        as well as updated completion percentages for section identified by `section_id` and parent LPD.
         """
+        # Create/Update submission
         section = Section.objects.get(id=section_id)
         submission, _ = Submission.objects.update_or_create(
             section=section,
@@ -355,4 +356,21 @@ class LPDSubmitView(View):
             }
         )
         log.info('Date and time of latest submission: %s.', submission.updated.strftime('%m/%d/%Y at %I:%M %p (UTC)'))
-        return get_last_update(section, user)
+
+        # Compile relevant information about latest submission
+        profile_completion_percentage = get_percent_complete(section.lpd, user)
+        section_completion_percentage = get_percent_complete(section, user)
+        last_update = {
+            'timestamp': get_last_update(section, user),
+            'completion_percentages': {
+                'profile': profile_completion_percentage,
+                'section': section_completion_percentage,
+            }
+        }
+        log.info(
+            'New completion stats: %s (profile), %s (section).',
+            profile_completion_percentage,
+            section_completion_percentage
+        )
+
+        return last_update

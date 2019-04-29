@@ -11,6 +11,8 @@
 
   <h2 class="section-title" title="Click to expand/collapse this section">
     <i class="fas fa-caret-right section-collapse expanded"></i> {{ section.title }} <span class="section-instructions">(click to expand and collapse)</span>
+    {% get_percent_complete section learner as completion_percentage %}
+    <span class="section-completeness">{{ completion_percentage }} complete</span>
   </h2>
 
   {% if section.intro_text %}

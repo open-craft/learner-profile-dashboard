@@ -12,6 +12,18 @@ register = template.Library()
 
 
 @register.simple_tag
+def get_percent_complete(component, learner):
+    """
+    Return string representing completion status of `learner` for `component`.
+
+    `component` should be an instance of `LearnerProfileDashboard` or `Section`.
+    """
+    return '{percent_complete:.0f}%'.format(
+        percent_complete=component.get_percent_complete(learner)
+    )
+
+
+@register.simple_tag
 def get_last_update(section, learner):
     """
     Return timestamp corresponding to date and time at which `learner` last submitted `section`.

@@ -1,3 +1,5 @@
+# pylint: disable=too-many-lines
+
 """
 View tests for Learner Profile Dashboard
 """
@@ -9,6 +11,7 @@ import ddt
 from django.urls import reverse
 from django.db import IntegrityError
 from django.test import TestCase
+from freezegun import freeze_time
 from mock import call, MagicMock, patch
 from requests import ConnectionError
 
@@ -265,6 +268,7 @@ class QuestionViewTests(UserSetupMixin, TestCase):
 
 
 # pylint: disable=too-many-instance-attributes,attribute-defined-outside-init
+@freeze_time("2019-04-23 07:21:30")
 class LPDSubmitViewTests(UserSetupMixin, TestCase):
     """
     Tests for LPDSubmitView.
@@ -275,7 +279,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.section = SectionFactory()
         self.student_login()
         self.data = {
-            'section_id': 1,
+            'section_id': self.section.pk,
             'qualitative_answers': json.dumps([]),
             'quantitative_answers': json.dumps([]),
         }
@@ -532,6 +536,23 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.assertEqual(submission.section, self.section)
         self.assertEqual(submission.learner, self.student_user)
 
+    def _assert_last_update(
+            self, content, expected_profile_percentage, expected_section_percentage
+    ):
+        """
+        Assert that `content` includes expected information about most recent submission.
+        """
+        last_update = content['last_update']
+        timestamp = last_update['timestamp']
+        completion_percentages = last_update['completion_percentages']
+        self.assertEqual(timestamp, 1556004090)  # Apr 23rd, 2019, 03:21:34
+        self.assertEqual(
+            completion_percentages, {
+                'profile': expected_profile_percentage,
+                'section': expected_section_percentage,
+            }
+        )
+
     def test_post_invalid_data(self):
         """
         Test that `post` method returns appropriate response if something goes wrong
@@ -581,9 +602,12 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         Test that `post` method returns appropriate response if processing of answer data is successful.
         """
         response = self.client.post(reverse('lpd:submit'), self.data)
-        message = json.loads(response.content)['message']
+        content = json.loads(response.content)
+        message = content['message']
+
         self.assertEqual(response.status_code, 200)
         self.assertEqual(message, 'Learner answers updated successfully.')
+        self._assert_last_update(content, '0%', '0%')
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_quantitative_answers')
@@ -609,14 +633,17 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         In this case, `post` should:
 
-        - Skip group membership calculation in this case.
+        - Skip group membership calculation.
         - Not attempt to send any data to the adaptive engine.
         - Update submission data.
+        - Return completion percentages for section and parent LPD.
         """
         qualitative_answers = []
         self.data['qualitative_answers'] = json.dumps(qualitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         qualitative_answers = QualitativeAnswer.objects.all()
@@ -631,6 +658,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         patched_send_learner_data.assert_not_called()
         # Make sure submission data was updated
         self._assert_submission_data()
+        # Make sure response contains appropriate completion percentages
+        self._assert_last_update(content, '0%', '0%')
 
     @patch('lpd.models.QualitativeQuestion.update_scores')
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
@@ -641,9 +670,10 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         In this case, `post` should:
 
-        - Skip group membership calculation in this case.
+        - Skip group membership calculation.
         - Not attempt to send any data to the adaptive engine.
         - Update submission data.
+        - Return completion percentages for section and parent LPD.
         """
         self._create_qualitative_questions(questions_influence_group_membership=False)
         self._create_knowledge_components()
@@ -651,6 +681,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['qualitative_answers'] = json.dumps(self.default_qualitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         self._assert_qualitative_answer_data()
@@ -664,6 +696,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         patched_send_learner_data.assert_not_called()
         # Make sure submission data was updated
         self._assert_submission_data()
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '100%', '100%')
 
     @patch('lpd.models.calculate_probabilities')
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
@@ -680,6 +714,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['qualitative_answers'] = json.dumps(self.default_qualitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         scores = Score.objects.all()
@@ -697,14 +733,17 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         # Make sure submission data was updated
         self._assert_submission_data()
 
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '100%', '100%')
+
     @patch('lpd.views.LPDSubmitView._process_quantitative_answers', new=MagicMock(return_value=[]))
     def test_post_qual_answers_split_answers(self):
         """
         Test that `post` correctly processes qualitative answers
         consisting of comma-separated lists of values.
         """
-        qualitative_question1 = QualitativeQuestionFactory(split_answer=False)
-        qualitative_question2 = QualitativeQuestionFactory(split_answer=True)
+        qualitative_question1 = QualitativeQuestionFactory(section=self.section, split_answer=False)
+        qualitative_question2 = QualitativeQuestionFactory(section=self.section, split_answer=True)
 
         qualitative_answers = [
             {
@@ -719,6 +758,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['qualitative_answers'] = json.dumps(qualitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         qualitative_answers = QualitativeAnswer.objects.all()
@@ -741,6 +782,9 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.assertEqual(qualitative_question2_answer.learner, self.student_user)
             self.assertEqual(qualitative_question2_answer.text, expected_text)
 
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '100%', '100%')
+
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
     def test_post_quant_answer_not_meaningful(self, patched_send_learner_data):
@@ -752,6 +796,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         - No answers or scores should be created.
         - No data should be sent to the adaptive engine.
         - A `Submission` should be created/updated to record the event.
+        - Completion percentages for section and parent LPD should be returned.
 
         The only question type for which `post` might receive a value that is not meaningful (i.e., `None`)
         is `QuestionTypes.LIKERT`. See `QuantitativeQuestion.get_answer_value` for details.
@@ -767,6 +812,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['quantitative_answers'] = json.dumps(quantitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         quantitative_answers = QuantitativeAnswer.objects.all()
@@ -779,6 +826,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         patched_send_learner_data.assert_not_called()
         # Make sure submission data was updated
         self._assert_submission_data()
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '0%', '0%')
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
@@ -789,7 +838,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         When dealing with values that are meaningful
         and corresponding answer options are configured to influence recommendations,
         appropriate answers and scores should be created,
-        and a `Submission` should be created/updated to record the event.
+        a `Submission` should be created/updated to record the event,
+        and completion percentages for section and parent LPD should be returned.
         """
         self._create_quantitative_questions()
         self._create_knowledge_components()
@@ -798,6 +848,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['quantitative_answers'] = json.dumps(self.default_quantitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         scores = Score.objects.all()
@@ -815,6 +867,9 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         # Make sure submission data was updated
         self._assert_submission_data()
 
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '33%', '33%')
+
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_qualitative_answers', new=MagicMock(return_value=[]))
     def test_post_quant_answers_no_influence(self, patched_send_learner_data):
@@ -826,7 +881,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         and corresponding answer options are *not* configured to influence recommendations,
         appropriate answers should be created, but `post` should skip creating scores,
         and should not send any data to the adaptive engine. Also, a `Submission`
-        should be created/updated to record the event.
+        should be created/updated to record the event,
+        and completion percentages for section and parent LPD should be returned.
         """
         self._create_quantitative_questions()
         self._create_knowledge_components()
@@ -835,6 +891,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['quantitative_answers'] = json.dumps(self.default_quantitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         scores = Score.objects.all()
@@ -847,6 +905,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         patched_send_learner_data.assert_not_called()
         # Make sure submission data was updated
         self._assert_submission_data()
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '33%', '33%')
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.log.error')
@@ -865,7 +925,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         but aren't linked to a knowledge component,
         appropriate answers should be created, but `post` should skip creating scores,
         and should not send any data to the adaptive engine. Also, a `Submission`
-        should be created/updated to record the event.
+        should be created/updated to record the event,
+        and completion percentages for section and parent LPD should be returned.
         """
         self._create_quantitative_questions()
         self._create_answer_options(influences_recommendations=True, link_knowledge_components=False)
@@ -873,6 +934,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self.data['quantitative_answers'] = json.dumps(self.default_quantitative_answers)
 
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         scores = Score.objects.all()
@@ -893,6 +956,9 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         # Make sure submission data was updated
         self._assert_submission_data()
+
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '33%', '33%')
 
     @patch('lpd.models.calculate_probabilities')
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
@@ -920,6 +986,8 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         # Submit data
         response = self.client.post(reverse('lpd:submit'), self.data)
+        content = json.loads(response.content)
+
         self.assertEqual(response.status_code, 200)
 
         # Check answers individually
@@ -939,6 +1007,9 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         # Make sure submission data was updated
         self._assert_submission_data()
+
+        # Make sure response contains appropriate information about most recent submission
+        self._assert_last_update(content, '60%', '60%')
 
         # Make sure that no answers, scores, or submissions exist for additional LPD
         for qualitative_question in additional_lpd['qualitative_questions']:

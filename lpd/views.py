@@ -2,23 +2,27 @@
 Views for Learner Profile Dashboard
 """
 
+from io import BytesIO
 import json
 import logging
 import pprint
 import traceback
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.template.loader import get_template
 from django.views.generic import DetailView
 from django.views.generic.base import View
 from django.contrib.auth.models import User
 from django.utils import timezone
 from requests import ConnectionError
+import xhtml2pdf.pisa as pisa
 
 from lpd.client import AdaptiveEngineAPIClient
 from lpd.models import (
     AnswerOption,
     LearnerProfileDashboard,
     LikertScaleQuestion,
+    LPDExport,
     MultipleChoiceQuestion,
     QualitativeAnswer,
     QualitativeQuestion,
@@ -57,6 +61,60 @@ class LPDView(DetailView):
         context['learner'] = learner
         context['lpd'] = lpd
         return context
+
+
+class LPDExportView(View):
+    """
+    Display specific LPD to learner.
+    """
+    http_method_names = ['get']
+
+    def get(self, request, *args, **kwargs):  # pylint: disable=too-many-locals
+        """
+        Collect necessary information for displaying LPD.
+        """
+        context = {}
+        lpd_pk = self.kwargs.get('pk')
+
+        try:
+            lpd = LearnerProfileDashboard.objects.get(pk=lpd_pk)
+        except LearnerProfileDashboard.DoesNotExist:
+            context['lpd_pk'] = lpd_pk
+            lpd_error_template = get_template('export/errors/lpd.html')
+            response = lpd_error_template.render(context)
+            return HttpResponse(response, status=404)
+        else:
+            context['lpd'] = lpd
+
+        learner = User.objects.get(username=self.request.user.username)
+        context['learner'] = learner
+
+        # Export learner profile data
+        lpd_export = LPDExport.objects.create(requested_by=learner, requested_for=lpd)
+        context['lpd_export'] = lpd_export
+
+        pdf_template = get_template('export/lpd.html')
+        html_rendering = pdf_template.render(context)
+
+        pdf_buffer = BytesIO()
+        html_buffer = BytesIO(html_rendering.encode('UTF-8'))
+        pdf = pisa.CreatePDF(html_buffer, pdf_buffer)
+
+        if pdf.err:
+            pdf_error_template = get_template('export/errors/lpd-export.html')
+            response = pdf_error_template.render(context)
+            return HttpResponse(response, status=400)
+
+        # Build response
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="{filename}"'.format(
+            filename=lpd_export.filename
+        )
+
+        # Store PDF file
+        lpd_export.save_pdf(pdf_buffer)
+
+        return response
 
 
 class QuestionView(DetailView):

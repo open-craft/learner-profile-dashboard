@@ -13,6 +13,7 @@
     <h1 class="lpd">
       {% get_percent_complete lpd learner as completion_percentage %}
       {{ lpd.name }} <span class="profile-completeness">({{ completion_percentage }} complete)</span>
+      <a class="profile-export" href="{% url 'lpd:export' pk=lpd.pk %}">Download profile data</a>
     </h1>
 
     {% for profile_section in lpd.sections.all %}
@@ -21,5 +22,6 @@
       {% endwith %}
     {% endfor %}
 
+    <a class="profile-export" href="{% url 'lpd:export' pk=lpd.pk %}">Download profile data</a>
   </div>
 {% endblock content %}

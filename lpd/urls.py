@@ -15,6 +15,7 @@ app_name = 'lpd'
 urlpatterns = [
     url(r'^submit$', login_required(views.LPDSubmitView.as_view()), name='submit'),
     url(r'^(?P<pk>\d+)$', login_required(views.LPDView.as_view()), name='view'),
+    url(r'^(?P<pk>\d+)/export$', login_required(views.LPDExportView.as_view()), name='export'),
     url(
         r'^q_qualitative/(?P<pk>\d+)$',
         login_required(views.QualitativeQuestionView.as_view()),

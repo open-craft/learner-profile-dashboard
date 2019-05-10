@@ -8,6 +8,7 @@ import re
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
+from django.core.files import File
 from django.urls import reverse
 from django.db import models
 from django.db.models import Max
@@ -15,6 +16,7 @@ from ordered_model.models import OrderedModel
 
 from lpd.constants import QuestionTypes, UnknownQuestionTypeError
 from lpd.qualitative_data_analysis import calculate_probabilities
+from lpd.storage import lpd_storage, export_path
 
 
 class LearnerProfileDashboard(models.Model):
@@ -171,6 +173,12 @@ class Question(models.Model):
         """
         raise NotImplementedError
 
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this question.
+        """
+        raise NotImplementedError
+
 
 class QualitativeQuestion(Question):
     """
@@ -221,7 +229,7 @@ class QualitativeQuestion(Question):
 
     def get_answer(self, learner):
         """
-        Return answer that `learner` provided for this question.
+        Return answer that `learner` provided for this qualitative question.
         """
         answers = QualitativeAnswer.objects.filter(question=self, learner=learner).order_by('id')
         if not answers.count():
@@ -311,6 +319,12 @@ class QuantitativeQuestion(Question):
 
         What constitutes an answer differs based on question type.
         Subclasses representing different types of questions are responsible for providing appropriate behavior.
+        """
+        raise NotImplementedError
+
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this question.
         """
         raise NotImplementedError
 
@@ -443,6 +457,22 @@ class MultipleChoiceQuestion(QuantitativeQuestion):
             answer_option.is_selected_by(learner) for answer_option in self.answer_options.all()
         )
 
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this multiple choice question.
+
+        For multiple choice questions, a learner's answer consists of a list of all answer options
+        that the learner selected.
+        """
+        answer = []
+        for answer_option in self.get_answer_options():
+            answer_data = answer_option.get_data(learner)
+            if answer_data is not None and answer_data['value'] == 1:
+                answer_data['option_text'] = answer_option.option_text
+                answer_data['allows_custom_input'] = answer_option.allows_custom_input
+                answer.append(answer_data)
+        return answer
+
 
 class RankingQuestion(QuantitativeQuestion):
     """
@@ -540,10 +570,26 @@ class RankingQuestion(QuantitativeQuestion):
             answer_option.is_selected_by(learner) for answer_option in self.answer_options.all()
         ) == self.number_of_options_to_rank
 
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this ranking question.
+
+        For ranking questions, a learner's answer consists of a list of all answer options
+        that the learner ranked, ordered by the selected rank (descending).
+        """
+        answer = []
+        for answer_option in self.get_answer_options():
+            answer_data = answer_option.get_data(learner)
+            if answer_data is not None and not answer_data['value'] == RankingQuestion.unranked_option_value():
+                answer_data['option_text'] = answer_option.option_text
+                answer_data['allows_custom_input'] = answer_option.allows_custom_input
+                answer.append(answer_data)
+        return sorted(answer, key=lambda o: o['value'])
+
 
 class LikertScaleQuestion(QuantitativeQuestion):
     """
-    Represents a (simplified) Likert Scale question, cf. https://en.wikipedia.org/wiki/Likert_scale.
+    Represents a (simplified) Likert scale question, cf. https://en.wikipedia.org/wiki/Likert_scale.
     """
     ANSWER_OPTION_RANGES = {
         'value': [
@@ -599,6 +645,34 @@ class LikertScaleQuestion(QuantitativeQuestion):
         return all(
             answer_option.is_selected_by(learner) for answer_option in regular_options
         )
+
+    def get_answer(self, learner):
+        """
+        Return answer that `learner` provided for this Likert scale question.
+
+        For Likert scale questions, a learner's answer consists of a list of all answer options:
+
+        - For each answer option that the learner selected a ranking for,
+          answer includes the label that corresponds to the selected rank
+          (as determined by the `answer_option_range` that this question is configured to use).
+        - For each answer option that the learner did not select a ranking for,
+          answer includes a default label of '---'.
+        """
+        answer = []
+        value_labels = LikertScaleQuestion.ANSWER_OPTION_RANGES[self.answer_option_range]
+        for answer_option in self.get_answer_options():
+            answer_data = answer_option.get_data(learner) or {}
+            answer_data['option_text'] = answer_option.option_text
+            answer_data['allows_custom_input'] = answer_option.allows_custom_input
+            if 'value' in answer_data:
+                answer_value = answer_data['value']
+                # Determine label corresponding to selected value and add it to answer data,
+                # adjusting for 1-based answer values (list of value labels is 0-based):
+                answer_data['value_label'] = value_labels[answer_value - 1]
+            else:
+                answer_data['value_label'] = '---'
+            answer.append(answer_data)
+        return answer
 
 
 class AnswerOption(models.Model):
@@ -878,3 +952,47 @@ class Submission(models.Model):
             return None
         else:
             return submission.updated
+
+
+class LPDExport(models.Model):
+    """
+    Represents a single export of a specific LPD instance, triggered by a specific learner.
+    """
+    requested_at = models.DateTimeField(auto_now_add=True, editable=False)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    requested_for = models.ForeignKey(
+        'LearnerProfileDashboard',
+        related_name='exports',
+        on_delete=models.CASCADE,
+    )
+    pdf_file = models.FileField(storage=lpd_storage, upload_to=export_path)
+
+    def __unicode__(self):
+        return 'LPDExport {id}: Requested by {username} for {lpd}'.format(
+            id=self.id,
+            username=self.requested_by.username,
+            lpd=self.requested_for,
+        )
+
+    @property
+    def filename(self):
+        """
+        Return file name for `pdf_file` belonging to this LPD export.
+
+        File name includes date and time at which this export was requested.
+
+        Example: 2019-01-01T165900_learner-profile.pdf
+        """
+        return '{requested_at}_learner-profile.pdf'.format(
+            requested_at=self.requested_at.strftime('%Y-%m-%dT%H%M%S')
+        )
+
+    def save_pdf(self, content_buffer):
+        """
+        Create PDF file from `content_buffer`, associate it with this LPD export, and store it.
+        """
+        pdf_file = File(content_buffer)
+        self.pdf_file.save(self.filename, pdf_file)

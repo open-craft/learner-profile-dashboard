@@ -4,14 +4,18 @@ Model tests for Learner Profile Dashboard
 
 # pylint: disable=too-many-lines
 
+from datetime import datetime
+from io import BytesIO
 import logging
+import os
 import random
 
 import ddt
-from django.test import TestCase
+from django.core.files import File
+from django.test import override_settings, TestCase
 from freezegun import freeze_time
 from mock import call, patch
-from pytz import utc
+import pytz
 
 from lpd.constants import QuestionTypes, UnknownQuestionTypeError
 from lpd.models import (
@@ -27,19 +31,8 @@ from lpd.models import (
     Score,
     Submission,
 )
-from lpd.tests.factories import (
-    KnowledgeComponentFactory,
-    LearnerProfileDashboardFactory,
-    LikertScaleQuestionFactory,
-    MultipleChoiceQuestionFactory,
-    QualitativeAnswerFactory,
-    QualitativeQuestionFactory,
-    RankingQuestionFactory,
-    SectionFactory,
-    SubmissionFactory,
-    UserFactory,
-)
-from lpd.tests.mixins import UserSetupMixin
+from lpd.tests import factories
+from lpd.tests.mixins import QuantitativeQuestionTestMixin, UserSetupMixin
 
 
 # Globals
@@ -47,12 +40,12 @@ from lpd.tests.mixins import UserSetupMixin
 log = logging.getLogger(__name__)
 
 QUALITATIVE_QUESTION_FACTORIES = [
-    QualitativeQuestionFactory,
+    factories.QualitativeQuestionFactory,
 ]
 QUANTITATIVE_QUESTION_FACTORIES = [
-    MultipleChoiceQuestionFactory,
-    RankingQuestionFactory,
-    LikertScaleQuestionFactory
+    factories.MultipleChoiceQuestionFactory,
+    factories.RankingQuestionFactory,
+    factories.LikertScaleQuestionFactory
 ]
 QUESTION_FACTORIES = QUALITATIVE_QUESTION_FACTORIES + QUANTITATIVE_QUESTION_FACTORIES
 
@@ -69,7 +62,7 @@ class LearnerProfileDashboardTests(TestCase):
         """
         Test string representation of `LearnerProfileDashboard` model.
         """
-        lpd = LearnerProfileDashboardFactory(name='Empty LPD')
+        lpd = factories.LearnerProfileDashboardFactory(name='Empty LPD')
         self.assertEqual(str(lpd), 'LPD 1: Empty LPD')
 
     @ddt.data(
@@ -160,12 +153,12 @@ class LearnerProfileDashboardTests(TestCase):
         Test that `get_percent_complete` method returns appropriate value
         based on number of sections that learner completed.
         """
-        learner = UserFactory()
-        lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        learner = factories.UserFactory()
+        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
 
         num_sections = len(section_percent_complete)
         for n in range(num_sections):
-            SectionFactory(lpd=lpd, title='Test section {n}'.format(n=n))
+            factories.SectionFactory(lpd=lpd, title='Test section {n}'.format(n=n))
 
         with patch('lpd.models.Section.get_percent_complete') as patched_get_percent_complete:
             patched_get_percent_complete.side_effect = section_percent_complete
@@ -182,7 +175,7 @@ class SectionTests(TestCase):
     """Section model tests."""
 
     def setUp(self):
-        self.lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        self.lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
 
     @classmethod
     def _create_questions(cls, section):
@@ -207,7 +200,7 @@ class SectionTests(TestCase):
         """
         Test string representation of `Section` model.
         """
-        section = SectionFactory(lpd=self.lpd, title='Basic information')
+        section = factories.SectionFactory(lpd=self.lpd, title='Basic information')
         self.assertEqual(str(section), 'LPD 1: Test LPD > Section 1: Basic information')
 
     def test_questions(self):
@@ -215,7 +208,7 @@ class SectionTests(TestCase):
         Test that `questions` property returns questions belonging to `Section` in appropriate order.
         """
         log.info('Testing `questions` property of `Section` model.')
-        section = SectionFactory(lpd=self.lpd, title='Details, Details, Details')
+        section = factories.SectionFactory(lpd=self.lpd, title='Details, Details, Details')
         questions = self._create_questions(section)
         self.assertEqual(section.questions, questions)
 
@@ -224,8 +217,8 @@ class SectionTests(TestCase):
         Test that `get_percent_complete` method returns appropriate value
         based on number of questions that learner answered.
         """
-        learner = UserFactory()
-        section = SectionFactory(lpd=self.lpd, title='Test section')
+        learner = factories.UserFactory()
+        section = factories.SectionFactory(lpd=self.lpd, title='Test section')
 
         with patch('lpd.models.QualitativeQuestion.has_answer_from') as patched_qualitative_has_answer_from, \
                 patch('lpd.models.MultipleChoiceQuestion.has_answer_from') as patched_multiple_has_answer_from, \
@@ -275,8 +268,8 @@ class SectionTests(TestCase):
         Test that `get_percent_complete` method returns appropriate value
         based on number of questions that learner answered.
         """
-        learner = UserFactory()
-        section = SectionFactory(lpd=self.lpd, title='Test section')
+        learner = factories.UserFactory()
+        section = factories.SectionFactory(lpd=self.lpd, title='Test section')
         questions = self._create_questions(section)
 
         # Verify assumption that this test makes about total number of questions belonging to `section`
@@ -327,7 +320,7 @@ class QuestionTests(TestCase):
         Test that `section_number` property returns appropriate value.
         """
         log.info('Testing `section_number` property of `Question` model.')
-        sections = SectionFactory.build_batch(3, lpd=self.lpd)
+        sections = factories.SectionFactory.build_batch(3, lpd=self.lpd)
 
         for section in sections:
             for question_factory in QUESTION_FACTORIES:
@@ -342,27 +335,27 @@ class QualitativeQuestionTests(TestCase):
     """QualitativeQuestion model tests."""
 
     def setUp(self):
-        lpd = LearnerProfileDashboardFactory(name='Test LPD')
-        section = SectionFactory(lpd=lpd, title='Test section')
+        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
+        section = factories.SectionFactory(lpd=lpd, title='Test section')
 
-        self.qualitative_question_1 = QualitativeQuestionFactory(
+        self.qualitative_question_1 = factories.QualitativeQuestionFactory(
             section=section,
             question_text='Is this a qualitative question?',
             influences_group_membership=True,
         )
-        self.qualitative_question_2 = QualitativeQuestionFactory(
+        self.qualitative_question_2 = factories.QualitativeQuestionFactory(
             section=section,
             question_text='Is this another qualitative question?',
             influences_group_membership=True,
         )
-        self.qualitative_question_3 = QualitativeQuestionFactory(
+        self.qualitative_question_3 = factories.QualitativeQuestionFactory(
             section=section,
             question_text='Is this yet another qualitative question?',
             influences_group_membership=False,
         )
 
-        self.learner_1 = UserFactory()
-        self.learner_2 = UserFactory()
+        self.learner_1 = factories.UserFactory()
+        self.learner_2 = factories.UserFactory()
 
         self.learner_1_answer_to_question_1 = "Learner 1's answer to question_1"
         self.learner_1_answer_to_question_2 = "Learner 1's answer to question_2"
@@ -375,34 +368,34 @@ class QualitativeQuestionTests(TestCase):
         # because the question that it belongs to is set up to *not* influence group membership
         learner_2_answer_to_question_3 = "Learner 2's answer to question_3"
 
-        self.kc_1 = KnowledgeComponentFactory(
+        self.kc_1 = factories.KnowledgeComponentFactory(
             kc_id='kc_id_1', kc_name='knowledge_component_1'
         )
-        self.kc_2 = KnowledgeComponentFactory(
+        self.kc_2 = factories.KnowledgeComponentFactory(
             kc_id='kc_id_2', kc_name='knowledge_component_2'
         )
 
-        QualitativeAnswerFactory(
+        factories.QualitativeAnswerFactory(
             learner=self.learner_1,
             question=self.qualitative_question_1,
             text=self.learner_1_answer_to_question_1,
         )
-        QualitativeAnswerFactory(
+        factories.QualitativeAnswerFactory(
             learner=self.learner_1,
             question=self.qualitative_question_2,
             text=self.learner_1_answer_to_question_2,
         )
-        QualitativeAnswerFactory(
+        factories.QualitativeAnswerFactory(
             learner=self.learner_1,
             question=self.qualitative_question_3,
             text=learner_1_answer_to_question_3,
         )
-        QualitativeAnswerFactory(
+        factories.QualitativeAnswerFactory(
             learner=self.learner_2,
             question=self.qualitative_question_1,
             text=self.learner_2_answer_to_question_1,
         )
-        QualitativeAnswerFactory(
+        factories.QualitativeAnswerFactory(
             learner=self.learner_2,
             question=self.qualitative_question_3,
             text=learner_2_answer_to_question_3,
@@ -432,8 +425,8 @@ class QualitativeQuestionTests(TestCase):
         """
         Test that `type` property returns appropriate value.
         """
-        essay_question = QualitativeQuestionFactory(question_type=QuestionTypes.ESSAY)
-        short_answer_question = QualitativeQuestionFactory(question_type=QuestionTypes.SHORT_ANSWER)
+        essay_question = factories.QualitativeQuestionFactory(question_type=QuestionTypes.ESSAY)
+        short_answer_question = factories.QualitativeQuestionFactory(question_type=QuestionTypes.SHORT_ANSWER)
         self.assertEqual(essay_question.type, QuestionTypes.ESSAY)
         self.assertEqual(short_answer_question.type, QuestionTypes.SHORT_ANSWER)
 
@@ -442,8 +435,8 @@ class QualitativeQuestionTests(TestCase):
         """
         Test that `get_answer` method returns appropriate value.
         """
-        question = QualitativeQuestionFactory(split_answer=split_answer)
-        learner = UserFactory()
+        question = factories.QualitativeQuestionFactory(split_answer=split_answer)
+        learner = factories.UserFactory()
 
         # Learner has yet to answer question
         self.assertEqual(question.get_answer(learner), '')
@@ -451,9 +444,9 @@ class QualitativeQuestionTests(TestCase):
         answer_text = 'This, is, not, an, answer'
         if split_answer:
             for answer_component in answer_text.split(', '):
-                QualitativeAnswerFactory(learner=learner, question=question, text=answer_component)
+                factories.QualitativeAnswerFactory(learner=learner, question=question, text=answer_component)
         else:
-            QualitativeAnswerFactory(learner=learner, question=question, text=answer_text)
+            factories.QualitativeAnswerFactory(learner=learner, question=question, text=answer_text)
 
         # Learner answered question
         self.assertEqual(question.get_answer(learner), answer_text)
@@ -467,7 +460,7 @@ class QualitativeQuestionTests(TestCase):
         """
         Test that `get_answer_components` method returns appropriate value.
         """
-        question = QualitativeQuestionFactory(split_answer=split_answer)
+        question = factories.QualitativeQuestionFactory(split_answer=split_answer)
         answer_text = 'This,is, not ,an , answer (and commas are all weird)'
 
         answer_components = question.get_answer_components(answer_text)
@@ -569,8 +562,8 @@ class QualitativeQuestionTests(TestCase):
 
         For qualitative questions, any text submitted by the learner counts as an answer.
         """
-        learner = UserFactory()
-        question = QualitativeQuestionFactory()
+        learner = factories.UserFactory()
+        question = factories.QualitativeQuestionFactory()
         with patch('lpd.models.QualitativeQuestion.get_answer') as patched_get_answer:
             patched_get_answer.return_value = answer
 
@@ -585,9 +578,9 @@ class QuantitativeQuestionTests(TestCase):
     """QuantitativeQuestion model tests."""
 
     def setUp(self):
-        self.unranked_option_value = 9
-        for number_of_options_to_rank in range(2, self.unranked_option_value, 2):
-            RankingQuestionFactory(number_of_options_to_rank=number_of_options_to_rank)
+        unranked_option_value = 9
+        for number_of_options_to_rank in range(2, unranked_option_value, 2):
+            factories.RankingQuestionFactory(number_of_options_to_rank=number_of_options_to_rank)
 
     @patch('lpd.models.MultipleChoiceQuestion._get_score')
     @patch('lpd.models.RankingQuestion._get_score')
@@ -640,72 +633,13 @@ class QuantitativeQuestionTests(TestCase):
         self.assertEqual(answer_value, expected_value)
 
 
-class QuantitativeQuestionTestMixin(object):
-    """Mixin for tests targeting QuantitativeQuestion models."""
-
-    def setUp(self):  # pylint: disable=missing-docstring
-        lpd = LearnerProfileDashboardFactory(name='Test LPD')
-        self.section = SectionFactory(lpd=lpd, title='Test section')
-
-    @classmethod
-    def _create_answer_options(cls, question, option_texts, fallback_options=(False, False, False)):
-        """
-        Create answer options for `question` based on options listed in `option_texts`,
-        and make them fallback options based on value of `fallback_options`.
-        """
-        return [
-            AnswerOption.objects.create(
-                content_object=question, option_text=option_text, fallback_option=fallback_option
-            ) for option_text, fallback_option in zip(option_texts, fallback_options)
-        ]
-
-    def test_get_answer_options(self):
-        """
-        Test that `get_answer_options` returns answer options in appropriate order.
-        """
-        question = self.question_factory(randomize_options=True)
-
-        # Create fallback options first, to make sure order of answer options in DB
-        # doesn't match order that we want to test for.
-        expected_fallback_options = self._create_answer_options(
-            question, ("Don't know", 'Other:'), fallback_options=(True, True)
-        )
-
-        # Create regular answer options
-        expected_answer_options = self._create_answer_options(question, ('Yellow', 'Blue', 'Red'))
-        answer_options = list(question.get_answer_options())
-
-        # Question is configured to display answer options in random order,
-        # so we only need to check if `get_answer_options` returns all answer options (and no more).
-        self.assertEqual(len(answer_options), 5)
-        for answer_option in expected_answer_options:
-            self.assertIn(answer_option, answer_options)
-
-        # However, fallback options need to be listed last, in reverse alphabetical order:
-        self.assertEqual(answer_options[3:], list(reversed(expected_fallback_options)))
-
-        # Disable randomization option
-        question.randomize_options = False
-        question.save()
-
-        answer_options = list(question.get_answer_options())
-        # Question is configured *not* to display answer options in random order,
-        # so we need to check if `get_answer_options` returns answer options in alphabetical order,
-        # and whether it lists fallback options last, in reverse alphabetical order.
-        self.assertEqual(len(answer_options), 5)
-        self.assertEqual(
-            answer_options,
-            sorted(expected_answer_options, key=lambda o: o.option_text) + list(reversed(expected_fallback_options))
-        )
-
-
 @ddt.ddt
 class MultipleChoiceQuestionTests(QuantitativeQuestionTestMixin, TestCase):
     """MultipleChoiceQuestion model tests."""
 
     def setUp(self):
         super(MultipleChoiceQuestionTests, self).setUp()
-        self.question_factory = MultipleChoiceQuestionFactory
+        self.question_factory = factories.MultipleChoiceQuestionFactory
         self.mcq = self.question_factory(
             section=self.section,
             question_text='Is this a multiple choice question?',
@@ -782,7 +716,7 @@ class MultipleChoiceQuestionTests(QuantitativeQuestionTestMixin, TestCase):
         For multiple choice questions, learner must select at least one answer option
         for the LPD to consider the question answered.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         question = self.question_factory(
             question_text='Will you answer this or not?',
             max_options_to_select=max_options_to_select
@@ -797,6 +731,133 @@ class MultipleChoiceQuestionTests(QuantitativeQuestionTestMixin, TestCase):
             patched_is_selected_by.assert_has_calls(expected_calls)
             self.assertEqual(has_answer_from_learner, expected_answer_status)
 
+    def test_get_answer_no_selections(self):
+        """
+        Test that `get_answer` method returns appropriate value if question hasn't been answered learner,
+        i.e., if learner never selected any answer options belonging to a multiple choice question.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question that the learner did not answer.'
+        )
+        answer_options = self._create_answer_options(question, ('A', 'B', 'C'))
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+
+            self.assertEqual(answer, [])
+            patched_get_answer_options.assert_called_once_with()
+
+    @ddt.data(
+        (False, ''),
+        (True, ''),
+        (True, 'Some custom input'),
+    )
+    @ddt.unpack
+    def test_get_answer_single_selection(self, allows_custom_input, custom_input):
+        """
+        Test that `get_answer` method returns appropriate value if learner selected a single answer option.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question for which the learner selected a single option.',
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, False, False)
+        )
+
+        # Record selections
+        selected_option = AnswerOption.objects.get(option_text='A')
+        selected_option_answer = QuantitativeAnswer.objects.create(
+            learner=learner,
+            answer_option=selected_option,
+            value=1,
+        )
+        if allows_custom_input:
+            selected_option_answer.custom_input = custom_input
+            selected_option_answer.save()
+
+        for option_text in ('B', 'C'):
+            unselected_option = AnswerOption.objects.get(option_text=option_text)
+            QuantitativeAnswer.objects.create(
+                learner=learner, answer_option=unselected_option, value=0
+            )
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+            expected_answer = [{
+                'value': 1,
+                'custom_input': custom_input,
+                'option_text': 'A',
+                'allows_custom_input': allows_custom_input,
+            }]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+
+    @ddt.data(
+        (False, '', ''),
+        (True, '', ''),
+        (True, '', 'Some custom input'),
+        (True, 'Some custom input', ''),
+        (True, 'Some custom input', 'Some more custom input'),
+    )
+    @ddt.unpack
+    def test_get_answer_multiple_selections(self, allows_custom_input, first_custom_input, second_custom_input):
+        """
+        Test that `get_answer` method returns appropriate value if learner selected more than one answer option.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question for which the learner selected multiple options.',
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, allows_custom_input, False)
+        )
+
+        # Record selections
+        for option_text, custom_input in (('A', first_custom_input), ('B', second_custom_input)):
+            selected_option = AnswerOption.objects.get(option_text=option_text)
+            selected_option_answer = QuantitativeAnswer.objects.create(
+                learner=learner, answer_option=selected_option, value=1
+            )
+            if allows_custom_input:
+                selected_option_answer.custom_input = custom_input
+                selected_option_answer.save()
+
+        unselected_option = AnswerOption.objects.get(option_text='C')
+        QuantitativeAnswer.objects.create(
+            learner=learner,
+            answer_option=unselected_option,
+            value=0,
+        )
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+            expected_answer = [
+                {
+                    'value': 1,
+                    'custom_input': first_custom_input,
+                    'option_text': 'A',
+                    'allows_custom_input': allows_custom_input,
+                },
+                {
+                    'value': 1,
+                    'custom_input': second_custom_input,
+                    'option_text': 'B',
+                    'allows_custom_input': allows_custom_input,
+                }
+            ]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+
 
 @ddt.ddt
 class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
@@ -804,7 +865,7 @@ class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
 
     def setUp(self):
         super(RankingQuestionTests, self).setUp()
-        self.question_factory = RankingQuestionFactory
+        self.question_factory = factories.RankingQuestionFactory
         self.question = self.question_factory(
             section=self.section,
             question_text='Is this a ranking question?',
@@ -881,13 +942,16 @@ class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
         For ranking questions, learner must rank required number of answer options
         (as specified by `number_of_options_to_rank`) for the LPD to consider the question answered.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         question = self.question_factory(
             question_text='How many options will you select?',
             number_of_options_to_rank=2
         )
         self._create_answer_options(
-            question, ('A', 'B', 'C', 'D'), fallback_options=(False, False, True, True)
+            question,
+            ('A', 'B', 'C', 'D'),
+            fallback_options=(False, False, True, True),
+            allow_custom_input=4 * (False,),
         )
         with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
             patched_is_selected_by.side_effect = answer_option_selection_status
@@ -898,6 +962,164 @@ class RankingQuestionTests(QuantitativeQuestionTestMixin, TestCase):
             patched_is_selected_by.assert_has_calls(expected_calls)
             self.assertEqual(has_answer_from_learner, expected_answer_status)
 
+    def test_get_answer_no_rankings(self):
+        """
+        Test that `get_answer` method returns appropriate value if question hasn't been answered learner,
+        i.e., if learner never ranked any answer options belonging to a ranking question.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question that the learner did not answer.'
+        )
+        answer_options = self._create_answer_options(question, ('A', 'B', 'C'))
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+
+            self.assertEqual(answer, [])
+            patched_get_answer_options.assert_called_once_with()
+
+    # pylint: disable=too-many-locals
+    @ddt.data(
+        (1, False, ''),
+        (2, False, ''),
+        (1, True, ''),
+        (2, True, ''),
+        (1, True, 'Some custom input'),
+        (2, True, 'Some custom input'),
+    )
+    @ddt.unpack
+    def test_get_answer_single_ranking(self, selected_rank, allows_custom_input, custom_input):
+        """
+        Test that `get_answer` method returns appropriate value if learner ranked a single answer option.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question for which the learner ranked a single option.',
+            number_of_options_to_rank=2
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, False, False)
+        )
+
+        # Record rankings
+        ranked_option = AnswerOption.objects.get(option_text='A')
+        ranked_option_answer = QuantitativeAnswer.objects.create(
+            learner=learner,
+            answer_option=ranked_option,
+            value=selected_rank,
+        )
+        if allows_custom_input:
+            ranked_option_answer.custom_input = custom_input
+            ranked_option_answer.save()
+
+        unranked_option_value = 4
+        for option_text in ('B', 'C'):
+            unranked_option = AnswerOption.objects.get(option_text=option_text)
+            QuantitativeAnswer.objects.create(
+                learner=learner, answer_option=unranked_option, value=unranked_option_value
+            )
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options, \
+                patch('lpd.models.RankingQuestion.unranked_option_value') as patched_unranked_option_value:
+            patched_get_answer_options.return_value = answer_options
+            patched_unranked_option_value.return_value = unranked_option_value
+
+            answer = question.get_answer(learner)
+            expected_answer = [{
+                'value': selected_rank,
+                'custom_input': custom_input,
+                'option_text': 'A',
+                'allows_custom_input': allows_custom_input,
+            }]
+            expected_calls = 3 * [call()]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+            patched_unranked_option_value.assert_has_calls(expected_calls)
+
+    @ddt.data(
+        (1, 2, False, '', ''),
+        (2, 1, False, '', ''),
+        (1, 2, True, '', ''),
+        (2, 1, True, '', ''),
+        (1, 2, True, '', 'Some custom input'),
+        (2, 1, True, '', 'Some custom input'),
+        (1, 2, True, 'Some custom input', ''),
+        (2, 1, True, 'Some custom input', ''),
+        (1, 2, True, 'Some custom input', 'Some more custom input'),
+        (2, 1, True, 'Some custom input', 'Some more custom input'),
+    )
+    @ddt.unpack
+    def test_get_answer_multiple_rankings(  # pylint: disable=too-many-locals
+            self,
+            first_selected_rank,
+            second_selected_rank,
+            allows_custom_input,
+            first_custom_input,
+            second_custom_input
+    ):
+        """
+        Test that `get_answer` method returns appropriate value if learner ranked more than one answer option.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question for which the learner ranked multiple options.',
+            number_of_options_to_rank=2
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, allows_custom_input, False)
+        )
+
+        # Record rankings
+        for option_text, selected_rank, custom_input in (
+                ('A', first_selected_rank, first_custom_input),
+                ('B', second_selected_rank, second_custom_input)
+        ):
+            ranked_option = AnswerOption.objects.get(option_text=option_text)
+            ranked_option_answer = QuantitativeAnswer.objects.create(
+                learner=learner, answer_option=ranked_option, value=selected_rank
+            )
+            if allows_custom_input:
+                ranked_option_answer.custom_input = custom_input
+                ranked_option_answer.save()
+
+        unranked_option_value = 4
+        unranked_option = AnswerOption.objects.get(option_text='C')
+        QuantitativeAnswer.objects.create(
+            learner=learner,
+            answer_option=unranked_option,
+            value=unranked_option_value,
+        )
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options, \
+                patch('lpd.models.RankingQuestion.unranked_option_value') as patched_unranked_option_value:
+            patched_get_answer_options.return_value = answer_options
+            patched_unranked_option_value.return_value = unranked_option_value
+
+            answer = question.get_answer(learner)
+            expected_answer = sorted([
+                {
+                    'value': first_selected_rank,
+                    'custom_input': first_custom_input,
+                    'option_text': 'A',
+                    'allows_custom_input': allows_custom_input,
+                },
+                {
+                    'value': second_selected_rank,
+                    'custom_input': second_custom_input,
+                    'option_text': 'B',
+                    'allows_custom_input': allows_custom_input,
+                }
+            ], key=lambda o: o['value'])
+            expected_calls = 3 * [call()]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+            patched_unranked_option_value.assert_has_calls(expected_calls)
+
 
 @ddt.ddt
 class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
@@ -905,7 +1127,7 @@ class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
 
     def setUp(self):
         super(LikertScaleQuestionTests, self).setUp()
-        self.question_factory = LikertScaleQuestionFactory
+        self.question_factory = factories.LikertScaleQuestionFactory
         self.question = self.question_factory(
             section=self.section,
             question_text='Is this a Likert scale question?',
@@ -956,7 +1178,7 @@ class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
         For Likert scale questions, learner must select value for each answer option
         (except for fallback options) for the LPD to consider the question answered.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         self._create_answer_options(self.question, ('A', 'B', 'C'), fallback_options=(False, False, True))
         with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
             patched_is_selected_by.side_effect = answer_option_selection_status
@@ -967,15 +1189,195 @@ class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
             patched_is_selected_by.assert_has_calls(expected_calls)
             self.assertEqual(has_answer_from_learner, expected_answer_status)
 
+    @ddt.data(False, True)
+    def test_get_answer_no_rankings(self, allows_custom_input):
+        """
+        Test that `get_answer` method returns appropriate value if question hasn't been answered learner,
+        i.e., if learner never selected a ranking for any answer options belonging to a Likert scale question.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question that the learner did not answer.',
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, False, False)
+        )
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+            expected_answer = [
+                {
+                    'value_label': '---',
+                    'option_text': 'A',
+                    'allows_custom_input': allows_custom_input,
+                },
+                {
+                    'value_label': '---',
+                    'option_text': 'B',
+                    'allows_custom_input': False,
+                },
+                {
+                    'value_label': '---',
+                    'option_text': 'C',
+                    'allows_custom_input': False,
+                },
+            ]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+
+    @ddt.data(
+        (1, 'Strongly Disagree', False, ''),
+        (3, 'Undecided', False, ''),
+        (2, 'Disagree', True, ''),
+        (4, 'Agree', True, ''),
+        (1, 'Strongly Disagree', True, 'Some custom input'),
+        (5, 'Strongly Agree', True, 'Some custom input'),
+    )
+    @ddt.unpack
+    def test_get_answer_single_ranking(
+            self, selected_rank_value, selected_rank_label, allows_custom_input, custom_input
+    ):
+        """
+        Test that `get_answer` method returns appropriate value
+        if learner selected ranking for a single answer option.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question for which the learner ranked a single option.',
+            answer_option_range='agreement'
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, False, False)
+        )
+
+        # Record rankings
+        ranked_option = AnswerOption.objects.get(option_text='A')
+        ranked_option_answer = QuantitativeAnswer.objects.create(
+            learner=learner,
+            answer_option=ranked_option,
+            value=selected_rank_value,
+        )
+        if allows_custom_input:
+            ranked_option_answer.custom_input = custom_input
+            ranked_option_answer.save()
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+            expected_answer = [
+                {
+                    'value': selected_rank_value,
+                    'value_label': selected_rank_label,
+                    'custom_input': custom_input,
+                    'option_text': 'A',
+                    'allows_custom_input': allows_custom_input,
+                },
+                {
+                    'value_label': '---',
+                    'option_text': 'B',
+                    'allows_custom_input': False,
+                },
+                {
+                    'value_label': '---',
+                    'option_text': 'C',
+                    'allows_custom_input': False,
+                },
+            ]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+
+    @ddt.data(
+        (1, 3, 'Strongly Disagree', 'Undecided', False, '', ''),
+        (2, 4, 'Disagree', 'Agree', False, '', ''),
+        (3, 1, 'Undecided', 'Strongly Disagree', True, '', ''),
+        (4, 2, 'Agree', 'Disagree', True, '', ''),
+        (1, 5, 'Strongly Disagree', 'Strongly Agree', True, '', 'Some custom input'),
+        (3, 4, 'Undecided', 'Agree', True, '', 'Some custom input'),
+        (5, 1, 'Strongly Agree', 'Strongly Disagree', True, 'Some custom input', ''),
+        (4, 3, 'Agree', 'Undecided', True, 'Some custom input', ''),
+        (1, 2, 'Strongly Disagree', 'Disagree', True, 'Some custom input', 'Some more custom input'),
+        (2, 1, 'Disagree', 'Strongly Disagree', True, 'Some custom input', 'Some more custom input'),
+    )
+    @ddt.unpack
+    def test_get_answer_multiple_rankings(  # pylint: disable=too-many-locals,too-many-arguments
+            self,
+            first_selected_rank_value,
+            second_selected_rank_value,
+            first_selected_rank_label,
+            second_selected_rank_label,
+            allows_custom_input,
+            first_custom_input,
+            second_custom_input
+    ):
+        """
+        Test that `get_answer` method returns appropriate value
+        if learner selected ranking for more than one answer option.
+        """
+        learner = factories.UserFactory()
+        question = self.question_factory(
+            question_text='A question for which the learner ranked multiple options.',
+            answer_option_range='agreement'
+        )
+        answer_options = self._create_answer_options(
+            question, ('A', 'B', 'C'), allow_custom_input=(allows_custom_input, allows_custom_input, False)
+        )
+
+        # Record rankings
+        for option_text, selected_rank_value, custom_input in (
+                ('A', first_selected_rank_value, first_custom_input),
+                ('B', second_selected_rank_value, second_custom_input)
+        ):
+            ranked_option = AnswerOption.objects.get(option_text=option_text)
+            ranked_option_answer = QuantitativeAnswer.objects.create(
+                learner=learner, answer_option=ranked_option, value=selected_rank_value
+            )
+            if allows_custom_input:
+                ranked_option_answer.custom_input = custom_input
+                ranked_option_answer.save()
+
+        with patch('lpd.models.QuantitativeQuestion.get_answer_options') as patched_get_answer_options:
+            patched_get_answer_options.return_value = answer_options
+
+            answer = question.get_answer(learner)
+            expected_answer = [
+                {
+                    'value': first_selected_rank_value,
+                    'value_label': first_selected_rank_label,
+                    'custom_input': first_custom_input,
+                    'option_text': 'A',
+                    'allows_custom_input': allows_custom_input,
+                },
+                {
+                    'value': second_selected_rank_value,
+                    'value_label': second_selected_rank_label,
+                    'custom_input': second_custom_input,
+                    'option_text': 'B',
+                    'allows_custom_input': allows_custom_input,
+                },
+                {
+                    'value_label': '---',
+                    'option_text': 'C',
+                    'allows_custom_input': False,
+                },
+            ]
+
+            self.assertEqual(answer, expected_answer)
+            patched_get_answer_options.assert_called_once_with()
+
 
 @ddt.ddt
 class AnswerOptionTests(TestCase):
     """AnswerOption model tests."""
 
     def setUp(self):
-        lpd = LearnerProfileDashboardFactory(name='Test LPD')
-        section = SectionFactory(lpd=lpd, title='Test section')
-        question = MultipleChoiceQuestionFactory(
+        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
+        section = factories.SectionFactory(lpd=lpd, title='Test section')
+        question = factories.MultipleChoiceQuestionFactory(
             section=section,
             question_text='Is this a multiple choice question?',
         )
@@ -998,7 +1400,7 @@ class AnswerOptionTests(TestCase):
         """
         Test that `get_data` returns appropriate data.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         self.assertIsNone(self.answer_option.get_data(learner))
         answer = QuantitativeAnswer.objects.create(
             learner=learner,
@@ -1013,19 +1415,21 @@ class AnswerOptionTests(TestCase):
         self.assertEqual(self.answer_option.get_data(learner), expected_data)
 
     @ddt.data(
-        (MultipleChoiceQuestionFactory, None, False),
-        (RankingQuestionFactory, None, False),
-        (LikertScaleQuestionFactory, None, False),
-        (MultipleChoiceQuestionFactory, {'value': 0, 'custom_input': ''}, False),
-        (MultipleChoiceQuestionFactory, {'value': 0, 'custom_input': 'Yellow'}, False),
-        (MultipleChoiceQuestionFactory, {'value': 1, 'custom_input': ''}, True),
-        (MultipleChoiceQuestionFactory, {'value': 1, 'custom_input': 'Purple'}, True),
-        (RankingQuestionFactory, {'value': 2, 'custom_input': ''}, True),
-        (RankingQuestionFactory, {'value': 2, 'custom_input': 'Green'}, True),
-        (RankingQuestionFactory, {'value': 5, 'custom_input': ''}, False),  # Mock default for unranked options
-        (RankingQuestionFactory, {'value': 5, 'custom_input': 'Blue'}, False),  # Mock default for unranked options
-        (LikertScaleQuestionFactory, {'value': 1, 'custom_input': ''}, True),
-        (LikertScaleQuestionFactory, {'value': 1, 'custom_input': 'Red'}, True),
+        (factories.MultipleChoiceQuestionFactory, None, False),
+        (factories.RankingQuestionFactory, None, False),
+        (factories.LikertScaleQuestionFactory, None, False),
+        (factories.MultipleChoiceQuestionFactory, {'value': 0, 'custom_input': ''}, False),
+        (factories.MultipleChoiceQuestionFactory, {'value': 0, 'custom_input': 'Yellow'}, False),
+        (factories.MultipleChoiceQuestionFactory, {'value': 1, 'custom_input': ''}, True),
+        (factories.MultipleChoiceQuestionFactory, {'value': 1, 'custom_input': 'Purple'}, True),
+        (factories.RankingQuestionFactory, {'value': 2, 'custom_input': ''}, True),
+        (factories.RankingQuestionFactory, {'value': 2, 'custom_input': 'Green'}, True),
+        (factories.RankingQuestionFactory, {'value': 5, 'custom_input': ''}, False),  # Mock default value
+                                                                                      # for unranked options
+        (factories.RankingQuestionFactory, {'value': 5, 'custom_input': 'Blue'}, False),  # Mock default value
+                                                                                          # for unranked options
+        (factories.LikertScaleQuestionFactory, {'value': 1, 'custom_input': ''}, True),
+        (factories.LikertScaleQuestionFactory, {'value': 1, 'custom_input': 'Red'}, True),
     )
     @ddt.unpack
     def test_is_selected_by(self, question_factory, answer_data, expected_selection_status):
@@ -1033,7 +1437,7 @@ class AnswerOptionTests(TestCase):
         Test that `is_selected_by` method returns appropriate value
         based on `answer_data` for answer option.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         question = question_factory()
         answer_option = AnswerOption.objects.create(content_object=question)
 
@@ -1045,7 +1449,7 @@ class AnswerOptionTests(TestCase):
             selected_by_learner = answer_option.is_selected_by(learner)
 
             patched_get_data.assert_called_once_with(learner)
-            if question_factory == RankingQuestionFactory and answer_data is not None:
+            if question_factory == factories.RankingQuestionFactory and answer_data is not None:
                 patched_unranked_option_value.assert_called_once_with()
 
             self.assertEqual(selected_by_learner, expected_selection_status)
@@ -1058,10 +1462,10 @@ class QualitativeAnswerTests(TestCase):
         """
         Test string representation of `QualitativeAnswer` model.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         for index, qualitative_question_factory in enumerate(QUALITATIVE_QUESTION_FACTORIES, start=1):
             question = qualitative_question_factory()
-            qualitative_answer = QualitativeAnswerFactory(
+            qualitative_answer = factories.QualitativeAnswerFactory(
                 learner=learner, question=question, text='This is not a qualitative answer.'
             )
             self.assertEqual(
@@ -1076,7 +1480,7 @@ class QuantitativeAnswerTests(TestCase):
         """
         Test string representation of `QuantitativeAnswer` model.
         """
-        learner = UserFactory()
+        learner = factories.UserFactory()
         for index, quantitative_question_factory in enumerate(QUANTITATIVE_QUESTION_FACTORIES, start=1):
             answer_option = AnswerOption.objects.create(content_object=quantitative_question_factory())
             quantitative_answer = QuantitativeAnswer.objects.create(
@@ -1099,9 +1503,9 @@ class KnowledgeComponentTests(TestCase):
         self.assertEqual(str(knowledge_component), 'KnowledgeComponent 1: test_id, test_name')
 
         # Test string representation of knowledge component that is associated with an answer option
-        lpd = LearnerProfileDashboardFactory(name='Test LPD')
-        section = SectionFactory(lpd=lpd, title='Test section')
-        question = MultipleChoiceQuestionFactory(
+        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
+        section = factories.SectionFactory(lpd=lpd, title='Test section')
+        question = factories.MultipleChoiceQuestionFactory(
             section=section,
             question_text='Is this a multiple choice question?',
         )
@@ -1126,7 +1530,7 @@ class ScoreTests(TestCase):
         Test string representation of `LikertScaleQuestion` model.
         """
         knowledge_component = KnowledgeComponent.objects.create(kc_id='test_id', kc_name='test_name')
-        learner = UserFactory()
+        learner = factories.UserFactory()
         score = Score.objects.create(knowledge_component=knowledge_component, learner=learner, value=23)
         self.assertEqual(str(score), 'Score 1: 23')
 
@@ -1135,14 +1539,14 @@ class SubmissionTests(UserSetupMixin, TestCase):
     """Submission model tests."""
 
     def setUp(self):
-        self.section = SectionFactory(title='Test section')
+        self.section = factories.SectionFactory(title='Test section')
         super(SubmissionTests, self).setUp()
 
     def test_str(self):
         """
         Test string representation of `Submission` model.
         """
-        submission = SubmissionFactory(section=self.section, learner=self.student_user)
+        submission = factories.SubmissionFactory(section=self.section, learner=self.student_user)
         self.assertEqual(str(submission), 'Submission 1: Test section, student_user')
 
     def test_get_last_update(self):
@@ -1162,7 +1566,52 @@ class SubmissionTests(UserSetupMixin, TestCase):
 
         # Submission exists
         with freeze_time('2017-01-17 11:25:00') as freezed_time:
-            updated = utc.localize(freezed_time())
-            SubmissionFactory(section=self.section, learner=self.student_user, updated=updated)
+            updated = pytz.utc.localize(freezed_time())
+            factories.SubmissionFactory(section=self.section, learner=self.student_user, updated=updated)
             last_update = Submission.get_last_update(self.section, self.student_user)
             self.assertEqual(last_update, updated)
+
+
+@freeze_time("2019-05-24 15:20:40")
+class LPDExportTests(UserSetupMixin, TestCase):
+    """LPDExport model tests."""
+
+    def setUp(self):
+        super(LPDExportTests, self).setUp()
+        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
+        self.lpd_export = factories.LPDExportFactory(requested_by=self.student_user, requested_for=lpd)
+
+    def test_str(self):
+        """
+        Test string representation of `LPDExport` model.
+        """
+        self.assertEqual(str(self.lpd_export), 'LPDExport 1: Requested by student_user for LPD 1: Test LPD')
+
+    def test_filename(self):
+        """
+        Test that `filename` property returns expected value.
+        """
+        # Verify precondition
+        requested_at = self.lpd_export.requested_at
+        self.assertEqual(requested_at, datetime(2019, 5, 24, 15, 20, 40, tzinfo=pytz.UTC))
+
+        # Verify output of `filename` property
+        filename = self.lpd_export.filename
+        self.assertEqual(filename, '2019-05-24T152040_learner-profile.pdf')
+
+    @override_settings(
+        USE_REMOTE_STORAGE=False,
+        MEDIA_ROOT='/tmp/learner-profile-dashboard/media'
+    )
+    def test_save_pdf(self):
+        """
+        Test that `save_pdf` creates PDF file, associates it with the LPD object on which it is called, and stores it.
+        """
+        contents = 'Dummy PDF contents'
+        content_buffer = BytesIO(contents.encode('UTF-8'))
+
+        self.lpd_export.save_pdf(content_buffer)
+        pdf_file = self.lpd_export.pdf_file
+
+        self.assertIsInstance(pdf_file, File)
+        self.assertTrue(os.path.exists(pdf_file.path))

@@ -9,6 +9,10 @@ body {
     margin-bottom: 1.2rem;
 }
 
+.profile-export {
+    text-decoration: none;
+}
+
 .section-title {
     padding: 0.4rem;
     background-color: #f2f2f2;
@@ -42,7 +46,7 @@ body {
     transition-duration: 600ms;
 }
 
-.section-instructions {
+.profile-export, .section-instructions {
     font-weight: normal;
 }
 
@@ -50,7 +54,7 @@ body {
     font-size: 0.85rem;
 }
 
-.section-completeness {
+.profile-export, .section-completeness {
     float: right;
 }
 
@@ -123,7 +127,7 @@ body {
     margin-left: 0.6rem;
 }
 
-.section-submit, .question-submit {
+.profile-export, .section-submit, .question-submit {
     box-shadow: none;
     border-color: #0075b4;
     border-style: solid;
@@ -137,6 +141,6 @@ body {
     cursor: pointer;
 }
 
-.section-submit:hover, .question-submit:hover {
-	background-color: #065683;
+.profile-export:hover, .section-submit:hover, .question-submit:hover {
+    background-color: #065683;
 }

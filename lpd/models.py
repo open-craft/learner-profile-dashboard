@@ -642,6 +642,8 @@ class LikertScaleQuestion(QuantitativeQuestion):
         (except for fallback options) for the LPD to consider the question answered.
         """
         regular_options = self.answer_options.filter(fallback_option=False)
+        if regular_options.count() == 0:
+            return False
         return all(
             answer_option.is_selected_by(learner) for answer_option in regular_options
         )

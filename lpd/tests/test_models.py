@@ -1189,6 +1189,43 @@ class LikertScaleQuestionTests(QuantitativeQuestionTestMixin, TestCase):
             patched_is_selected_by.assert_has_calls(expected_calls)
             self.assertEqual(has_answer_from_learner, expected_answer_status)
 
+    def test_has_answer_from_no_options(self):
+        """
+        Test that `has_answer_from` method returns appropriate value (False)
+        if Likert scale question has no answer options.
+        """
+        learner = factories.UserFactory()
+        with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
+            has_answer_from_learner = self.question.has_answer_from(learner)
+
+            patched_is_selected_by.assert_not_called()
+            self.assertFalse(has_answer_from_learner)
+
+    @ddt.data(
+        (False, False, False),  # No answers
+        (True, False, False),   # Learner provided answer for 1 out of 3 fallback options
+        (False, True, False),   # Learner provided answer for 1 out of 3 fallback options
+        (False, False, True),   # Learner provided answer for 1 out of 3 fallback options
+        (True, True, False),    # Learner provided answer for 2 out of 3 fallback options
+        (False, True, True),    # Learner provided answer for 2 out of 3 fallback options
+        (True, False, True),    # Learner provided answer for 2 out of 3 fallback options
+        (True, True, True),     # Learner provided answer for 3 out of 3 fallback options
+    )
+    def test_has_answer_from_no_regular_options(self, answer_option_selection_status):
+        """
+        Test that `has_answer_from` method returns appropriate value (False)
+        if Likert scale question has no regular answer options.
+        """
+        learner = factories.UserFactory()
+        self._create_answer_options(self.question, ('A', 'B', 'C'), fallback_options=(True, True, True))
+        with patch('lpd.models.AnswerOption.is_selected_by') as patched_is_selected_by:
+            patched_is_selected_by.side_effect = answer_option_selection_status
+
+            has_answer_from_learner = self.question.has_answer_from(learner)
+
+            patched_is_selected_by.assert_not_called()
+            self.assertFalse(has_answer_from_learner)
+
     @ddt.data(False, True)
     def test_get_answer_no_rankings(self, allows_custom_input):
         """

@@ -1494,32 +1494,90 @@ class QuantitativeAnswerTests(TestCase):
 class KnowledgeComponentTests(TestCase):
     """KnowledgeComponent model tests."""
 
+    def setUp(self):
+        # Create knowledge component that is not associated with an answer option
+        self.knowledge_component_1 = KnowledgeComponent.objects.create(kc_id='test_id_1', kc_name='test_name_1')
+
+        # Create knowledge component that is associated with an answer option
+        self.lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
+        section = factories.SectionFactory(lpd=self.lpd, title='Test section')
+        question = factories.MultipleChoiceQuestionFactory(
+            section=section,
+            question_text='Is this a multiple choice question?',
+        )
+        self.knowledge_component_2 = KnowledgeComponent.objects.create(kc_id='test_id_2', kc_name='test_name_2')
+        AnswerOption.objects.create(
+            content_object=question, option_text='This is not an option.',
+            knowledge_component=self.knowledge_component_2
+        )
+
     def test_str(self):
         """
         Test string representation of `KnowledgeComponent` model.
         """
         # Test string representation of knowledge component that is not associated with an answer option
-        knowledge_component = KnowledgeComponent.objects.create(kc_id='test_id', kc_name='test_name')
-        self.assertEqual(str(knowledge_component), 'KnowledgeComponent 1: test_id, test_name')
+        self.assertEqual(str(self.knowledge_component_1), 'KnowledgeComponent 1: test_id_1, test_name_1')
 
         # Test string representation of knowledge component that is associated with an answer option
-        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
-        section = factories.SectionFactory(lpd=lpd, title='Test section')
-        question = factories.MultipleChoiceQuestionFactory(
-            section=section,
-            question_text='Is this a multiple choice question?',
-        )
-        AnswerOption.objects.create(
-            content_object=question, option_text='This is not an option.',
-            knowledge_component=knowledge_component
-        )
         self.assertEqual(
-            str(knowledge_component),
-            'KnowledgeComponent 1: test_id, test_name '
+            str(self.knowledge_component_2),
+            'KnowledgeComponent 2: test_id_2, test_name_2 '
             '(associated with LPD 1: Test LPD > Section 1: Test section > '
             'MultipleChoiceQuestion 1: Is this a multiple choice question? > '
             'AnswerOption 1: This is not an option.)'
         )
+
+    def test_save(self):
+        """
+        Test that `save` method rejects attempts to set `lpd` field to an LPD instance
+        that doesn't match LPD instance that `answer_option` belongs to (and vice versa).
+        """
+        # Setting `lpd` field to LPD instance that doesn't match LPD instance of `answer_option` should fail
+        another_lpd = factories.LearnerProfileDashboardFactory(name='Another LPD')
+        with self.assertRaises(AssertionError):
+            self.knowledge_component_2.lpd = another_lpd
+            self.knowledge_component_2.save()
+
+        # Setting `lpd` field to LPD instance matching LPD instance of `answer_option` should succeed
+        try:
+            self.knowledge_component_2.lpd = self.lpd
+            self.knowledge_component_2.save()
+        except AssertionError:
+            self.fail(
+                'Setting `lpd` field to LPD instance that matches LPD instance of `answer_option` '
+                'should not raise exception.'
+            )
+
+        # Setting `answer_option` field to instance that is associated with LPD instance
+        # that doesn't match value of `lpd` field should fail
+        another_section = factories.SectionFactory(lpd=another_lpd, title='Another section')
+        another_question = factories.MultipleChoiceQuestionFactory(
+            section=another_section,
+            question_text='Is this another multiple choice question?',
+        )
+        another_answer_option = AnswerOption.objects.create(
+            content_object=another_question, option_text='This is not another option.',
+        )
+        with self.assertRaises(AssertionError):
+            self.knowledge_component_2.answer_option = another_answer_option
+            self.knowledge_component_2.save()
+
+        # If knowledge component is not associated with an answer option,
+        # it should be possible to set `lpd` field to any LPD instance
+        try:
+            self.knowledge_component_1.lpd = self.lpd
+            self.knowledge_component_1.save()
+        except AssertionError:
+            self.fail(
+                'If `answer_option` is not set, setting `lpd` field should never raise exception.'
+            )
+        try:
+            self.knowledge_component_1.lpd = another_lpd
+            self.knowledge_component_1.save()
+        except AssertionError:
+            self.fail(
+                'If `answer_option` is not set, setting `lpd` field should never raise exception.'
+            )
 
 
 class ScoreTests(TestCase):

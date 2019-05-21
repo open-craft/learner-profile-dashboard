@@ -862,6 +862,29 @@ class KnowledgeComponent(models.Model):
     A knowledge component is either associated with a specific answer option,
     or represents a 'group' that a learner might be associated with.
     """
+    lpd = models.ForeignKey(
+        'LearnerProfileDashboard',
+        blank=True,
+        null=True,
+        help_text=(
+            "LPD that this knowledge component is associated with. "
+            "Note: If a knowledge component is associated with an answer option, "
+            "it is implicitly linked to an LPD via that answer option: "
+            "Every answer option is associated with a (quantitative) question, "
+            "and every question is associated with a section, which is in turn associated with an LPD. "
+            "So in this case, setting this field is not strictly required. "
+            "However, if a knowledge component represents a group (and is not associated with an answer option), "
+            "this field should be set to the LPD for which the knowledge component was (or is intended to be) used: "
+            "Without an explicit association between knowledge components and LPDs, "
+            "it wouldn't be possible to filter group scores by LPD/course run. "
+            "This is because there is no link between a specific group score and the set of learner answers "
+            "that it was derived from, so it is not possible to trace the group score "
+            "back to a specific set of qualitative questions "
+            "(which would be a prerequisite for tracing the score all the way back to a specific LPD)."
+        ),
+        related_name='knowledge_components',
+        on_delete=models.CASCADE,
+    )
     kc_id = models.CharField(
         max_length=50,
         help_text='String that LPD and adaptive engine use to uniquely identify this knowledge component.',
@@ -883,6 +906,21 @@ class KnowledgeComponent(models.Model):
             return '{kc_info} (associated with {answer_option})'.format(
                 kc_info=kc_info, answer_option=answer_option
             )
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        """
+        If this knowledge component is associated with an answer option,
+        make sure that the value of the `lpd` field matches the LPD associated with the answer option
+        (and vice versa).
+        """
+        if hasattr(self, 'lpd') and hasattr(self, 'answer_option'):
+            assert self.lpd.pk == self.answer_option.content_object.section.lpd.pk
+        super(KnowledgeComponent, self).save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            update_fields=update_fields
+        )
 
 
 class Score(models.Model):

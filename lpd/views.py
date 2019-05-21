@@ -181,17 +181,28 @@ class LPDSubmitView(View):
         even if the learner did not update any of their answers prior to clicking the submit button
         for a given section.
         """
+        section_id = request.POST.get('section_id')
+        try:
+            section = Section.objects.get(id=section_id)
+        except Section.DoesNotExist:
+            log.error(
+                'The following exception occurred when trying to retrieve target section (ID: %s):\n%s',
+                section_id,
+                traceback.format_exc()
+            )
+            return JsonResponse({'message': 'Target section does not exist.'}, status=500)
+
         user = User.objects.get(username=request.user.username)
         qualitative_answers = json.loads(request.POST.get('qualitative_answers'))
         quantitative_answers = json.loads(request.POST.get('quantitative_answers'))
 
-        log.info('Attempting to update answers for user %s.', user)
+        log.info('Attempting to update answers for user %s and %s.', user, section)
         log.info('Request data (qualitative answers):\n%s', pprint.pformat(qualitative_answers))
         log.info('Request data (quantitative answers):\n%s', pprint.pformat(quantitative_answers))
 
         # Process answer data
         try:
-            group_scores = self._process_qualitative_answers(user, qualitative_answers)
+            group_scores = self._process_qualitative_answers(user, qualitative_answers, section)
             answer_scores = self._process_quantitative_answers(user, quantitative_answers)
         except Exception:  # pylint: disable=broad-except
             log.error(
@@ -219,18 +230,7 @@ class LPDSubmitView(View):
                 log.info('Scores successfully transmitted to adaptive engine for user %s.', user)
 
         # Update submission data
-        section_id = request.POST.get('section_id')
-        try:
-            last_update = self._process_submission(user, section_id)
-        except Section.DoesNotExist:
-            log.error(
-                'The following exception occurred when trying to update submission data for user %s:\n%s',
-                user,
-                traceback.format_exc()
-            )
-            return JsonResponse({'message': 'Could not update submission data.'}, status=500)
-        else:
-            log.info('Submission data successfully updated for user %s and section %s.', user, section_id)
+        last_update = self._process_submission(user, section)
 
         return JsonResponse({
             'message': 'Learner answers updated successfully.',
@@ -238,15 +238,15 @@ class LPDSubmitView(View):
         })
 
     @classmethod
-    def _process_qualitative_answers(cls, user, qualitative_answers):
+    def _process_qualitative_answers(cls, user, qualitative_answers, section):
         """
-        Process `qualitative_answers` from `user`.
+        Process `qualitative_answers` from `user` for `section`.
 
         This involves:
 
          - Creating/updating one or more `QualitativeAnswer`s for `user`, for each qualitative answer in request.
          - Creating/updating `Score` records for `user` and appropriate knowledge components,
-           using all relevant `QualitativeAnswer`s submitted so far by the `user`
+           using all relevant `QualitativeAnswer`s submitted so far by the `user` for `section`
            (check models.QualitativeQuestion.update_scores() for details).
 
         Return up-to-date `Score` records for further processing.
@@ -286,7 +286,7 @@ class LPDSubmitView(View):
         # Update scores iff learner changed their answer to one or more qualitative questions
         # that are configured to influence recommendations.
         if update_group_membership:
-            return QualitativeQuestion.update_scores(learner=user)
+            return QualitativeQuestion.update_scores(user, section)
 
         return []
 
@@ -399,13 +399,12 @@ class LPDSubmitView(View):
         return score
 
     @classmethod
-    def _process_submission(cls, user, section_id):
+    def _process_submission(cls, user, section):
         """
-        Update date and time at which `user` last submitted section identified by `section_id` and return it,
-        as well as updated completion percentages for section identified by `section_id` and parent LPD.
+        Update date and time at which `user` last submitted `section` and return it,
+        as well as updated completion percentages for `section` and parent LPD.
         """
         # Create/Update submission
-        section = Section.objects.get(id=section_id)
         submission, _ = Submission.objects.update_or_create(
             section=section,
             learner=user,
@@ -413,6 +412,7 @@ class LPDSubmitView(View):
                 'updated': timezone.now()
             }
         )
+        log.info('Submission data successfully updated for user %s and %s.', user, section)
         log.info('Date and time of latest submission: %s.', submission.updated.strftime('%m/%d/%Y at %I:%M %p (UTC)'))
 
         # Compile relevant information about latest submission

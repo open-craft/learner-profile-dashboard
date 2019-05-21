@@ -8,9 +8,9 @@ import json
 import logging
 
 import ddt
-from django.urls import reverse
 from django.db import IntegrityError
 from django.test import override_settings, TestCase
+from django.urls import reverse
 from freezegun import freeze_time
 from mock import call, MagicMock, patch, PropertyMock
 from requests import ConnectionError
@@ -452,9 +452,15 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         Create a set of knowledge components to use for tests that verify processing
         of qualitative and quantitative data.
         """
-        self.group_knowledge_component1 = KnowledgeComponentFactory(kc_id='test_group_kc1')
-        self.group_knowledge_component2 = KnowledgeComponentFactory(kc_id='test_group_kc2')
-        self.group_knowledge_component3 = KnowledgeComponentFactory(kc_id='test_group_kc3')
+        self.group_knowledge_component1 = KnowledgeComponentFactory(
+            kc_id='test_group_kc1', kc_name='Group KC 1', lpd=self.section.lpd
+        )
+        self.group_knowledge_component2 = KnowledgeComponentFactory(
+            kc_id='test_group_kc2', kc_name='Group KC 2', lpd=self.section.lpd
+        )
+        self.group_knowledge_component3 = KnowledgeComponentFactory(
+            kc_id='test_group_kc3', kc_name='Group KC 3', lpd=self.section.lpd
+        )
 
         # Note that group probabilities do not need to sum up to 1.
         self.group_probabilities = {
@@ -463,9 +469,9 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.group_knowledge_component3.kc_id: 0.7,
         }
 
-        self.knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc1')
-        self.knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc2')
-        self.knowledge_component3 = KnowledgeComponentFactory(kc_id='test_kc3')
+        self.knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc1', kc_name='KC 1')
+        self.knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc2', kc_name='KC 2')
+        self.knowledge_component3 = KnowledgeComponentFactory(kc_id='test_kc3', kc_name='KC 3')
 
     def _create_answer_options(self, influences_recommendations=True, link_knowledge_components=True):
         """
@@ -569,7 +575,10 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         )
 
         knowledge_components = (
-            KnowledgeComponentFactory(kc_id='additional_test_kc{n}'.format(n=n)) for n in range(3)
+            KnowledgeComponentFactory(
+                kc_id='additional_test_kc{n}'.format(n=n),
+                kc_name='Additional Test KC {n}'.format(n=n)
+            ) for n in range(3)
         )
 
         answer_options = (
@@ -665,11 +674,22 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             }
         )
 
-    def test_post_invalid_data(self):
+    def test_post_invalid_section(self):
         """
-        Test that `post` method returns appropriate response if something goes wrong
-        while processing learner profile data.
+        Test that `post` method returns appropriate response if target section does not exist.
         """
+        with patch('lpd.views.Section.objects.get') as patched_section_get:
+            patched_section_get.side_effect = models.Section.DoesNotExist
+            response = self.client.post(reverse('lpd:submit'), self.data)
+            message = json.loads(response.content)['message']
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(message, 'Target section does not exist.')
+
+    def test_post_invalid_answers(self):
+        """
+        Test that `post` method returns appropriate response if processing answer data fails.
+        """
+        # Processing qualitative answers fails
         with patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers:
             patched_process_qual_answers.side_effect = IntegrityError
             response = self.client.post(reverse('lpd:submit'), self.data)
@@ -677,6 +697,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not update learner answers.')
 
+        # Processing quantitative answers fails
         with patch('lpd.views.LPDSubmitView._process_quantitative_answers') as patched_process_quant_answers, \
                 patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers:
             patched_process_quant_answers.side_effect = IntegrityError
@@ -685,24 +706,19 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not update learner answers.')
 
-        with patch('lpd.views.LPDSubmitView._process_quantitative_answers') as patched_process_quant_answers, \
-                patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers, \
+    def test_post_score_transmission_fails(self):
+        """
+        Test that `post` method returns appropriate response
+        if transmitting scores to adaptive engine fails.
+        """
+        with patch('lpd.views.LPDSubmitView._process_quantitative_answers'), \
+                patch('lpd.views.LPDSubmitView._process_qualitative_answers'), \
                 patch('lpd.views.AdaptiveEngineAPIClient.send_learner_data') as patched_send_learner_data:
             patched_send_learner_data.side_effect = ConnectionError
             response = self.client.post(reverse('lpd:submit'), self.data)
             message = json.loads(response.content)['message']
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not transmit scores to adaptive engine.')
-
-        with patch('lpd.views.LPDSubmitView._process_quantitative_answers') as patched_process_quant_answers, \
-                patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers, \
-                patch('lpd.views.AdaptiveEngineAPIClient.send_learner_data') as patched_send_learner_data, \
-                patch('lpd.views.LPDSubmitView._process_submission') as patched_process_submission:
-            patched_process_submission.side_effect = models.Section.DoesNotExist
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            message = json.loads(response.content)['message']
-            self.assertEqual(response.status_code, 500)
-            self.assertEqual(message, 'Could not update submission data.')
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_quantitative_answers')

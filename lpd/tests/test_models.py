@@ -330,50 +330,102 @@ class QuestionTests(TestCase):
                     self.assertEqual(question.section_number, '{}.{}'.format(section.order+1, question.number))
 
 
-@ddt.ddt  # pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes,attribute-defined-outside-init
+@ddt.ddt
 class QualitativeQuestionTests(TestCase):
     """QualitativeQuestion model tests."""
 
-    def setUp(self):
-        lpd = factories.LearnerProfileDashboardFactory(name='Test LPD')
-        section = factories.SectionFactory(lpd=lpd, title='Test section')
+    def _create_learners(self):
+        """
+        Create learners for testing group score calculation.
+        """
+        self.learner_1 = factories.UserFactory()
+        self.learner_2 = factories.UserFactory()
 
+    def _create_lpds(self):
+        """
+        Create specific LPDs to associate answers with.
+        """
+        self.primary_lpd = factories.LearnerProfileDashboardFactory(name='Primary LPD')
+        self.secondary_lpd = factories.LearnerProfileDashboardFactory(name='Secondary LPD')
+
+    def _create_sections(self):
+        """
+        Create specific sections to associate answers with.
+        """
+        self.primary_section = factories.SectionFactory(lpd=self.primary_lpd, title='Primary section')
+        self.secondary_section = factories.SectionFactory(lpd=self.secondary_lpd, title='Secondary section')
+
+    def _create_questions(self):
+        """
+        Create questions associated with specific LPDs and sections.
+        """
+        # Questions associated with primary LPD
+        # (group score calculation should take into account learner answers belonging to this LPD)
         self.qualitative_question_1 = factories.QualitativeQuestionFactory(
-            section=section,
+            section=self.primary_section,
             question_text='Is this a qualitative question?',
             influences_group_membership=True,
         )
         self.qualitative_question_2 = factories.QualitativeQuestionFactory(
-            section=section,
+            section=self.primary_section,
             question_text='Is this another qualitative question?',
             influences_group_membership=True,
         )
         self.qualitative_question_3 = factories.QualitativeQuestionFactory(
-            section=section,
+            section=self.primary_section,
             question_text='Is this yet another qualitative question?',
             influences_group_membership=False,
         )
 
-        self.learner_1 = factories.UserFactory()
-        self.learner_2 = factories.UserFactory()
+        # Questions associated with secondary LPD
+        # (group score calculation should ignore learner answers belonging to this LPD)
+        self.secondary_question_1 = factories.QualitativeQuestionFactory(
+            section=self.secondary_section,
+            question_text='Is this a qualitative question?',
+            influences_group_membership=True,
+        )
+        self.secondary_question_2 = factories.QualitativeQuestionFactory(
+            section=self.secondary_section,
+            question_text='Is this another qualitative question?',
+            influences_group_membership=True,
+        )
 
-        self.learner_1_answer_to_question_1 = "Learner 1's answer to question_1"
-        self.learner_1_answer_to_question_2 = "Learner 1's answer to question_2"
-        # This answer should be ignored when updating scores
-        # because the question that it belongs to is set up to *not* influence group membership
-        learner_1_answer_to_question_3 = "Learner 1's answer to question_3"
-
-        self.learner_2_answer_to_question_1 = "Learner 2's answer to question_1"
-        # This answer should be ignored when updating scores
-        # because the question that it belongs to is set up to *not* influence group membership
-        learner_2_answer_to_question_3 = "Learner 2's answer to question_3"
-
+    def _create_knowledge_components(self):
+        """
+        Create knowledge components for testing group score calculation.
+        """
+        # Knowledge components for main LPD
         self.kc_1 = factories.KnowledgeComponentFactory(
-            kc_id='kc_id_1', kc_name='knowledge_component_1'
+            kc_id='kc_id_1', kc_name='knowledge_component_1', lpd=self.primary_lpd
         )
         self.kc_2 = factories.KnowledgeComponentFactory(
-            kc_id='kc_id_2', kc_name='knowledge_component_2'
+            kc_id='kc_id_2', kc_name='knowledge_component_2', lpd=self.primary_lpd
         )
+
+        # Knowledge components for secondary LPD
+        factories.KnowledgeComponentFactory(
+            kc_id='kc_id_1', kc_name='knowledge_component_1', lpd=self.secondary_lpd
+        )
+        factories.KnowledgeComponentFactory(
+            kc_id='kc_id_2', kc_name='knowledge_component_2', lpd=self.secondary_lpd
+        )
+
+    def _create_answers(self):
+        """
+        Create answers for testing group score calculation.
+        """
+        # Learner answers for questions belonging to `primary_section`
+        self.learner_1_answer_to_question_1 = "Learner 1's answer to question_1 (primary section)"
+        self.learner_1_answer_to_question_2 = "Learner 1's answer to question_2 (primary section)"
+        # This answer should be ignored when updating scores
+        # because the question that it belongs to is set up to *not* influence group membership
+        learner_1_answer_to_question_3 = "Learner 1's answer to question_3 (primary section)"
+
+        self.learner_2_answer_to_question_1 = "Learner 2's answer to question_1 (primary section)"
+        # This answer should be ignored when updating scores
+        # because the question that it belongs to is set up to *not* influence group membership
+        learner_2_answer_to_question_3 = "Learner 2's answer to question_3 (primary section)"
 
         factories.QualitativeAnswerFactory(
             learner=self.learner_1,
@@ -401,24 +453,62 @@ class QualitativeQuestionTests(TestCase):
             text=learner_2_answer_to_question_3,
         )
 
+        # Learner answers for questions belonging to `secondary_section`
+        learner_1_answer_to_question_1 = "Learner 1's answer to question_1 (secondary section)"
+        learner_1_answer_to_question_2 = "Learner 1's answer to question_2 (secondary section)"
+
+        learner_2_answer_to_question_1 = "Learner 2's answer to question_1 (secondary section)"
+
+        factories.QualitativeAnswerFactory(
+            learner=self.learner_1,
+            question=self.secondary_question_1,
+            text=learner_1_answer_to_question_1,
+        )
+        factories.QualitativeAnswerFactory(
+            learner=self.learner_1,
+            question=self.secondary_question_2,
+            text=learner_1_answer_to_question_2,
+        )
+        factories.QualitativeAnswerFactory(
+            learner=self.learner_2,
+            question=self.secondary_question_1,
+            text=learner_2_answer_to_question_1,
+        )
+
     def test_str(self):
         """
         Test string representation of `QualitativeQuestion` model.
         """
+        # Create test data
+        self._create_lpds()
+        self._create_sections()
+        self._create_questions()
+
+        # Check string representations
         self.assertEqual(
             str(self.qualitative_question_1),
-            'LPD 1: Test LPD > Section 1: Test section > '
+            'LPD 1: Primary LPD > Section 1: Primary section > '
             'QualitativeQuestion 1: Is this a qualitative question?'
         )
         self.assertEqual(
             str(self.qualitative_question_2),
-            'LPD 1: Test LPD > Section 1: Test section > '
+            'LPD 1: Primary LPD > Section 1: Primary section > '
             'QualitativeQuestion 2: Is this another qualitative question?'
         )
         self.assertEqual(
             str(self.qualitative_question_3),
-            'LPD 1: Test LPD > Section 1: Test section > '
+            'LPD 1: Primary LPD > Section 1: Primary section > '
             'QualitativeQuestion 3: Is this yet another qualitative question?'
+        )
+        self.assertEqual(
+            str(self.secondary_question_1),
+            'LPD 2: Secondary LPD > Section 2: Secondary section > '
+            'QualitativeQuestion 4: Is this a qualitative question?'
+        )
+        self.assertEqual(
+            str(self.secondary_question_2),
+            'LPD 2: Secondary LPD > Section 2: Secondary section > '
+            'QualitativeQuestion 5: Is this another qualitative question?'
         )
 
     def test_type(self):
@@ -471,24 +561,44 @@ class QualitativeQuestionTests(TestCase):
         """
         Test the behaviour of `update_scores` class method.
         """
+        # Create test data
+        self._create_learners()
+        self._create_lpds()
+        self._create_sections()
+        self._create_questions()
+        self._create_knowledge_components()
+        self._create_answers()
+
         patched_calculate_probabilities.return_value = {
             'kc_id_1': 0.2, 'kc_id_2': 0.8
         }
 
-        # Update scores of learner_1 and assert that the results are correct
-        QualitativeQuestion.update_scores(self.learner_1)
+        # Update scores of `learner_1` and `primary_section`
+        QualitativeQuestion.update_scores(self.learner_1, self.primary_section)
 
+        # Check that group probabilities were calculated using correct set of learner answers
+        # (i.e., learner answers belonging to `primary_lpd`).
         self.assertItemsEqual(
             patched_calculate_probabilities.call_args[0][0],
             [self.learner_1_answer_to_question_1, self.learner_1_answer_to_question_2]
         )
+        # Check total number of scores:
+        # LPD that learner answers belong to has two knowledge components representing groups,
+        # so after updating scores for `learner_1`, database should contain two scores.
         self.assertEqual(Score.objects.all().count(), 2)
+        # Check number of scores per learner:
+        # We've only updated scores for `learner_1` so far,
+        # so two scores should be associated with `learner_1`, and zero with `learner_2`.
         self.assertEqual(Score.objects.filter(learner=self.learner_1).count(), 2)
         self.assertEqual(Score.objects.filter(learner=self.learner_2).count(), 0)
-
+        # Check number of scores per LPD:
+        # We've only updated scores for `primary_section` so far,
+        # so two scores should be associated with `primary_lpd`, and zero with `secondary_lpd`.
+        self.assertEqual(Score.objects.filter(knowledge_component__lpd=self.primary_lpd).count(), 2)
+        self.assertEqual(Score.objects.filter(knowledge_component__lpd=self.secondary_lpd).count(), 0)
+        # Check score values:
         # Scores have to be equal to (1 - probability)
-        # to have the desired effect
-        # on recommendations generated by the adaptive engine.
+        # to have the desired effect on recommendations generated by the adaptive engine.
         self.assertAlmostEqual(
             Score.objects.get(
                 learner=self.learner_1, knowledge_component=self.kc_1
@@ -508,16 +618,32 @@ class QualitativeQuestionTests(TestCase):
             'kc_id_1': 0.3, 'kc_id_2': 0.7
         }
 
-        # Update scores of learner_2 and assert that the results are correct
-        QualitativeQuestion.update_scores(self.learner_2)
+        # Update scores of `learner_2` and `primary_section`
+        QualitativeQuestion.update_scores(self.learner_2, self.primary_section)
 
+        # Check that group probabilities were calculated using correct set of learner answers
+        # (i.e., learner answers belonging to `primary_lpd`).
         self.assertItemsEqual(
             patched_calculate_probabilities.call_args[0][0],
             [self.learner_2_answer_to_question_1]
         )
+        # Check total number of scores:
+        # LPD that learner answers belong to has two knowledge components representing groups,
+        # so after updating scores for both `learner_1` and `learner_2`, database should contain four scores.
         self.assertEqual(Score.objects.all().count(), 4)
+        # Check number of scores per learner:
+        # We've now updated scores for both `learner_1` and `learner_2`,
+        # so two scores should be associated with `learner_1`, and two with `learner_2`.
         self.assertEqual(Score.objects.filter(learner=self.learner_1).count(), 2)
         self.assertEqual(Score.objects.filter(learner=self.learner_2).count(), 2)
+        # Check number of scores per LPD:
+        # We've only updated scores for `primary_section` so far,
+        # so four scores should be associated with `primary_lpd`, and zero with `secondary_lpd`.
+        self.assertEqual(Score.objects.filter(knowledge_component__lpd=self.primary_lpd).count(), 4)
+        self.assertEqual(Score.objects.filter(knowledge_component__lpd=self.secondary_lpd).count(), 0)
+        # Check score values:
+        # Scores have to be equal to (1 - probability)
+        # to have the desired effect on recommendations generated by the adaptive engine.
         self.assertAlmostEqual(
             Score.objects.get(
                 learner=self.learner_1, knowledge_component=self.kc_1
@@ -1660,8 +1786,8 @@ class SubmissionTests(UserSetupMixin, TestCase):
             self.assertIsNone(last_update)
 
         # Submission exists
-        with freeze_time('2017-01-17 11:25:00') as freezed_time:
-            updated = pytz.utc.localize(freezed_time())
+        with freeze_time('2017-01-17 11:25:00') as frozen_time:
+            updated = pytz.utc.localize(frozen_time())
             factories.SubmissionFactory(section=self.section, learner=self.student_user, updated=updated)
             last_update = Submission.get_last_update(self.section, self.student_user)
             self.assertEqual(last_update, updated)

@@ -79,8 +79,8 @@ class TemplateTagsTests(TestCase):
         self.assertIsNone(last_update)
 
         # Submission exists
-        with freeze_time('2017-01-17 11:25:00') as freezed_time:
-            updated = utc.localize(freezed_time())
+        with freeze_time('2017-01-17 11:25:00') as frozen_time:
+            updated = utc.localize(frozen_time())
             SubmissionFactory(section=section, learner=self.learner, updated=updated)
             last_update = lpd_tags.get_last_update(section, self.learner)
             expected_last_update = 1484652300

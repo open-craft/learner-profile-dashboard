@@ -37,8 +37,8 @@ class AdaptiveEngineAPIClientTests(UserSetupMixin, TestCase):
         self.student_user.username = username
         self.student_user.save()
 
-        knowledge_component1 = KnowledgeComponentFactory(kc_id='kc_id_1')
-        knowledge_component2 = KnowledgeComponentFactory(kc_id='kc_id_2')
+        knowledge_component1 = KnowledgeComponentFactory(kc_id='kc_id_1', kc_name='KC 1')
+        knowledge_component2 = KnowledgeComponentFactory(kc_id='kc_id_2', kc_name='KC 2')
 
         score1 = Score.objects.create(
             knowledge_component=knowledge_component1,

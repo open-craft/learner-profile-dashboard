@@ -104,7 +104,6 @@ class KnowledgeComponentFactory(factory.DjangoModelFactory):
     """Factory for knowledge components."""
     class Meta:
         model = models.KnowledgeComponent
-        django_get_or_create = ['kc_id']
 
 
 class SubmissionFactory(factory.DjangoModelFactory):

@@ -9,17 +9,17 @@
 
   {% csrf_token %}
 
-  <h2 class="section-title" title="Click to expand/collapse this section">
-    <i class="fas fa-caret-right section-collapse expanded"></i> {{ section.title }} <span class="section-instructions">(click to expand and collapse)</span>
+  <h2 class="section-title" title="Click to expand/collapse this section" tabindex="0">
+    <i class="fas fa-caret-right section-collapse collapsed"></i> {{ section.title }} <span class="section-instructions">(click to expand and collapse)</span>
     {% get_percent_complete section learner as completion_percentage %}
     <span class="section-completeness">{{ completion_percentage }} complete</span>
   </h2>
 
   {% if section.intro_text %}
-    <p class="section-intro">{{ section.intro_text|render_custom_formatting }}</p>
+    <p class="section-intro" style="display: none;">{{ section.intro_text|render_custom_formatting }}</p>
   {% endif %}
 
-  <div class="section-questions">
+  <div class="section-questions" style="display: none;">
     {% for profile_question in section.questions %}
       {% with question_template="question.html" %}
         {% include question_template with question=profile_question %}
@@ -27,7 +27,7 @@
     {% endfor %}
   </div>
 
-  <div class="section-controls">
+  <div class="section-controls" style="display: none;">
     <p class="submit-instructions">
       Don’t forget to submit! Your answers will not be saved until you click the submit button below.
     </p>

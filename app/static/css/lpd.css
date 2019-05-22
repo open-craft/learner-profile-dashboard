@@ -19,8 +19,11 @@ body {
     cursor: pointer;
 }
 
-.section-title:hover {
+.section-title:hover, .section-title:focus {
     background-color: #e5e5e5;
+}
+
+.section-title:hover {
     cursor: pointer;
 }
 
@@ -141,6 +144,11 @@ body {
     cursor: pointer;
 }
 
-.profile-export:hover, .section-submit:hover, .question-submit:hover {
+.profile-export:hover,
+.profile-export:focus,
+.section-submit:hover,
+.section-submit:focus,
+.question-submit:hover,
+.question-submit:focus {
     background-color: #065683;
 }

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Could not export profile data.</h1>
+  <p>Please go back to the <a href="{% url 'lpd:view' pk=lpd.pk %}">previous page</a> and try again.</p>
+{% endblock content %}

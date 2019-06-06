@@ -1,0 +1,17 @@
+{% load lpd_filters %}
+
+<h2 class="section-title">
+  {{ section.title }}
+</h2>
+
+{% if section.intro_text %}
+  <p class="section-intro">{{ section.intro_text|remove_estimates|render_custom_formatting }}</p>
+{% endif %}
+
+<div class="section-questions">
+  {% for profile_question in section.questions %}
+    {% with question_template="export/question.html" %}
+      {% include question_template with question=profile_question %}
+    {% endwith %}
+  {% endfor %}
+</div>

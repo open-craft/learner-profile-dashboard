@@ -8,17 +8,7 @@ from django.contrib.auth import get_user_model
 import factory
 
 from lpd.constants import QuestionTypes
-from lpd.models import (
-    KnowledgeComponent,
-    LearnerProfileDashboard,
-    LikertScaleQuestion,
-    MultipleChoiceQuestion,
-    QualitativeAnswer,
-    QualitativeQuestion,
-    RankingQuestion,
-    Section,
-    Submission,
-)
+from lpd import models
 
 
 class UserFactory(factory.DjangoModelFactory):
@@ -41,7 +31,7 @@ class UserFactory(factory.DjangoModelFactory):
 class LearnerProfileDashboardFactory(factory.DjangoModelFactory):
     """Factory for LPDs."""
     class Meta:
-        model = LearnerProfileDashboard
+        model = models.LearnerProfileDashboard
         django_get_or_create = ['name']
 
     name = factory.Sequence(u'LPD {0}'.format)
@@ -50,7 +40,7 @@ class LearnerProfileDashboardFactory(factory.DjangoModelFactory):
 class SectionFactory(factory.DjangoModelFactory):
     """Factory for sections."""
     class Meta:
-        model = Section
+        model = models.Section
         django_get_or_create = ['title']
 
     lpd = factory.SubFactory(LearnerProfileDashboardFactory)
@@ -72,7 +62,7 @@ class QuestionFactory(factory.DjangoModelFactory):
 class QualitativeQuestionFactory(QuestionFactory):
     """Factory for qualitative questions."""
     class Meta:
-        model = QualitativeQuestion
+        model = models.QualitativeQuestion
 
     question_type = random.choice(QuestionTypes.get_qualitative_types())
 
@@ -80,7 +70,7 @@ class QualitativeQuestionFactory(QuestionFactory):
 class MultipleChoiceQuestionFactory(QuestionFactory):
     """Factory for multiple choice questions."""
     class Meta:
-        model = MultipleChoiceQuestion
+        model = models.MultipleChoiceQuestion
 
     max_options_to_select = random.randint(1, 15)
 
@@ -88,7 +78,7 @@ class MultipleChoiceQuestionFactory(QuestionFactory):
 class RankingQuestionFactory(QuestionFactory):
     """Factory for ranking questions."""
     class Meta:
-        model = RankingQuestion
+        model = models.RankingQuestion
 
     number_of_options_to_rank = random.randint(1, 5)
 
@@ -96,7 +86,7 @@ class RankingQuestionFactory(QuestionFactory):
 class LikertScaleQuestionFactory(QuestionFactory):
     """Factory for Likert scale questions."""
     class Meta:
-        model = LikertScaleQuestion
+        model = models.LikertScaleQuestion
 
     answer_option_range = random.choice(['value', 'agreement'])
 
@@ -104,7 +94,7 @@ class LikertScaleQuestionFactory(QuestionFactory):
 class QualitativeAnswerFactory(factory.DjangoModelFactory):
     """Factory for qualitative answers."""
     class Meta:
-        model = QualitativeAnswer
+        model = models.QualitativeAnswer
 
     learner = factory.SubFactory(UserFactory)
     question = factory.SubFactory(QualitativeQuestionFactory)
@@ -113,15 +103,21 @@ class QualitativeAnswerFactory(factory.DjangoModelFactory):
 class KnowledgeComponentFactory(factory.DjangoModelFactory):
     """Factory for knowledge components."""
     class Meta:
-        model = KnowledgeComponent
-        django_get_or_create = ['kc_id']
+        model = models.KnowledgeComponent
 
 
 class SubmissionFactory(factory.DjangoModelFactory):
     """Factory for submissions."""
     class Meta:
-        model = Submission
+        model = models.Submission
         django_get_or_create = ['section', 'learner']
 
     section = factory.SubFactory(SectionFactory)
     learner = factory.SubFactory(UserFactory)
+
+
+class LPDExportFactory(factory.DjangoModelFactory):
+    """Factory for LPD exports."""
+    class Meta:
+        model = models.LPDExport
+        django_get_or_create = ['requested_by', 'requested_for']

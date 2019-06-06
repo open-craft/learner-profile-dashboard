@@ -8,12 +8,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 
 import nltk
 from sklearn.externals import joblib
 
+
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
@@ -35,6 +36,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django_lti_tool_provider',
     'ordered_model',
+    'storages',
     'app',
     'iframe',
     'lpd',
@@ -83,6 +85,21 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
+# Media files
+
+USE_REMOTE_STORAGE = os.environ.get('USE_REMOTE_STORAGE', False)
+
+if USE_REMOTE_STORAGE:
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', 'SET-ME')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', 'SET-ME')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', 'SET-ME')
+    AWS_DEFAULT_ACL = None
+    AWS_S3_ENCRYPTION = True
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_S3_REGION_NAME = 'us-east-2'  # LPD resources are located in US East (Ohio)
+else:
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -103,6 +120,8 @@ TEMPLATES = [
         },
     },
 ]
+
+# App URLs
 
 LOGIN_URL = 'admin:login'
 

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% load tz %}
+
+{% block css %}
+  <style>
+    h2.section-title {
+        margin-top: 30px;
+    }
+
+    p.answer-text, div.mc-options, div.ranking-options, div.likert-options {
+        margin-left: 30px;
+    }
+
+    table, th, td {
+        border: 1px solid #c1c1c1;
+    }
+    th, td {
+        padding-top: 5px;
+        padding-right: 5px;
+        padding-bottom: 5px;
+    }
+    td {
+        vertical-align: top;
+    }
+  </style>
+{% endblock css %}
+
+{% block content %}
+  <div id="view-lpd">
+    <h1 class="lpd">
+      My {{ lpd.name }}
+    </h1>
+
+    <p>Date: {{ lpd_export.requested_at|localtime|date:'F j, Y h:i A' }}</p>
+
+    {% for profile_section in lpd.sections.all %}
+      {% with section_template="export/section.html" %}
+        {% include section_template with section=profile_section %}
+      {% endwith %}
+    {% endfor %}
+  </div>
+{% endblock content %}

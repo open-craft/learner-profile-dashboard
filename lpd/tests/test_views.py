@@ -8,23 +8,15 @@ import json
 import logging
 
 import ddt
-from django.urls import reverse
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import override_settings, TestCase
+from django.urls import reverse
 from freezegun import freeze_time
-from mock import call, MagicMock, patch
+from mock import call, MagicMock, patch, PropertyMock
 from requests import ConnectionError
 
 from lpd.constants import QuestionTypes
-from lpd.models import (
-    AnswerOption,
-    LearnerProfileDashboard,
-    QualitativeAnswer,
-    QuantitativeAnswer,
-    Score,
-    Section,
-    Submission,
-)
+from lpd import models
 from lpd.tests.factories import (
     KnowledgeComponentFactory,
     LearnerProfileDashboardFactory,
@@ -161,6 +153,126 @@ class LPDViewTests(UserSetupMixin, TestCase):
         self.admin_login()
         response = self.client.get(non_existent_lpd_url)
         self.assertEqual(response.status_code, 404)
+
+
+@freeze_time("2019-05-16 09:51:30")
+class LPDExportViewTests(UserSetupMixin, TestCase):
+    """
+    Tests for LPDExportView.
+    """
+
+    def setUp(self):
+        super(LPDExportViewTests, self).setUp()
+        lpd = LearnerProfileDashboardFactory(name='Test LPD')
+        self.lpd_export_url = reverse('lpd:export', kwargs={'pk': lpd.pk})
+
+    def test_anonymous_existing(self):
+        """
+        Test that export URL targeting existing LPD redirects to admin login for unauthenticated users.
+        """
+        response = self.client.get(self.lpd_export_url)
+        login_url = ''.join([reverse('admin:login'), '?next=', self.lpd_export_url])
+        self.assertRedirects(response, login_url)
+
+    @override_settings(
+        USE_REMOTE_STORAGE=False,
+        MEDIA_ROOT='/tmp/learner-profile-dashboard/media'
+    )
+    def test_authenticated_existing(self):
+        """
+        Test that authenticated users can access export URL targeting existing LPD.
+        """
+        # Check access for authenticated student.
+        self.student_login()
+        response = self.client.get(self.lpd_export_url)
+        self.assertEqual(response.status_code, 200)
+
+        # Reset state
+        self.client.logout()
+
+        # Check access for authenticated admin.
+        self.admin_login()
+        response = self.client.get(self.lpd_export_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_non_existent(self):
+        """
+        Test that export URL targeting non-existent LPD redirects to admin login for unauthenticated users.
+        """
+        non_existent_lpd = LearnerProfileDashboardFactory(name='Ghost LPD')
+        non_existent_lpd_export_url = reverse('lpd:export', kwargs={'pk': non_existent_lpd.pk})
+        non_existent_lpd.delete()
+        response = self.client.get(non_existent_lpd_export_url)
+        login_url = ''.join([reverse('admin:login'), '?next=', non_existent_lpd_export_url])
+        self.assertRedirects(response, login_url)
+
+    @silence_request_warnings
+    def test_authenticated_non_existent(self):
+        """
+        Test that authenticated users can access URL targeting non-existent LPD.
+        """
+        non_existent_lpd = LearnerProfileDashboardFactory(name='Ghost LPD')
+        non_existent_lpd_export_url = reverse('lpd:export', kwargs={'pk': non_existent_lpd.pk})
+        non_existent_lpd.delete()
+
+        # Check access for authenticated student.
+        self.student_login()
+        response = self.client.get(non_existent_lpd_export_url)
+        self.assertEqual(response.status_code, 404)
+        self.assertTemplateUsed('export/errors/lpd.html')
+
+        # Reset state
+        self.client.logout()
+
+        # Check access for authenticated student.
+        self.admin_login()
+        response = self.client.get(non_existent_lpd_export_url)
+        self.assertEqual(response.status_code, 404)
+        self.assertTemplateUsed('export/errors/lpd.html')
+
+    @override_settings(
+        USE_REMOTE_STORAGE=False,
+        MEDIA_ROOT='/tmp/learner-profile-dashboard/media'
+    )
+    def test_get_pdf_creation_successful(self):
+        """
+        Test that successful PDF creation results in response containing PDF,
+        and database containing record of PDF export requested by learner.
+        """
+        self.student_login()
+
+        # Verify initial set of PDF export records
+        pdf_exports = models.LPDExport.objects.all()
+        self.assertEqual(pdf_exports.count(), 0)
+
+        # Request PDF export
+        response = self.client.get(self.lpd_export_url)
+
+        # Verify expectations about reponse
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertEqual(
+            response['Content-Disposition'],
+            'attachment; filename="2019-05-16T095130_learner-profile.pdf"'
+        )
+
+        # Verify set of PDF export records
+        pdf_exports = models.LPDExport.objects.all()
+        self.assertEqual(pdf_exports.count(), 1)
+
+    def test_get_pdf_creation_unsuccessful(self):
+        """
+        Test that unsuccessful PDF creation results in 400 response.
+        """
+        self.student_login()
+
+        with patch('lpd.views.pisa.CreatePDF') as patched_create_pdf:
+            type(patched_create_pdf.return_value).err = PropertyMock(return_value=True)
+
+            response = self.client.get(self.lpd_export_url)
+
+            self.assertEqual(response.status_code, 400)
+            self.assertTemplateUsed('export/errors/lpd-export.html')
 
 
 @ddt.ddt
@@ -340,9 +452,15 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         Create a set of knowledge components to use for tests that verify processing
         of qualitative and quantitative data.
         """
-        self.group_knowledge_component1 = KnowledgeComponentFactory(kc_id='test_group_kc1')
-        self.group_knowledge_component2 = KnowledgeComponentFactory(kc_id='test_group_kc2')
-        self.group_knowledge_component3 = KnowledgeComponentFactory(kc_id='test_group_kc3')
+        self.group_knowledge_component1 = KnowledgeComponentFactory(
+            kc_id='test_group_kc1', kc_name='Group KC 1', lpd=self.section.lpd
+        )
+        self.group_knowledge_component2 = KnowledgeComponentFactory(
+            kc_id='test_group_kc2', kc_name='Group KC 2', lpd=self.section.lpd
+        )
+        self.group_knowledge_component3 = KnowledgeComponentFactory(
+            kc_id='test_group_kc3', kc_name='Group KC 3', lpd=self.section.lpd
+        )
 
         # Note that group probabilities do not need to sum up to 1.
         self.group_probabilities = {
@@ -351,29 +469,29 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.group_knowledge_component3.kc_id: 0.7,
         }
 
-        self.knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc1')
-        self.knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc2')
-        self.knowledge_component3 = KnowledgeComponentFactory(kc_id='test_kc3')
+        self.knowledge_component1 = KnowledgeComponentFactory(kc_id='test_kc1', kc_name='KC 1')
+        self.knowledge_component2 = KnowledgeComponentFactory(kc_id='test_kc2', kc_name='KC 2')
+        self.knowledge_component3 = KnowledgeComponentFactory(kc_id='test_kc3', kc_name='KC 3')
 
     def _create_answer_options(self, influences_recommendations=True, link_knowledge_components=True):
         """
         Create a set of knowledge components to use for tests that verify processing of quantitative data.
         """
-        self.answer_option1 = AnswerOption.objects.create(
+        self.answer_option1 = models.AnswerOption.objects.create(
             id=1,
             content_object=self.quantitative_question1,
             knowledge_component=self.knowledge_component1 if link_knowledge_components else None,
             influences_recommendations=influences_recommendations,
             allows_custom_input=False,
         )
-        self.answer_option2 = AnswerOption.objects.create(
+        self.answer_option2 = models.AnswerOption.objects.create(
             id=2,
             content_object=self.quantitative_question2,
             knowledge_component=self.knowledge_component2 if link_knowledge_components else None,
             influences_recommendations=influences_recommendations,
             allows_custom_input=True,
         )
-        self.answer_option3 = AnswerOption.objects.create(
+        self.answer_option3 = models.AnswerOption.objects.create(
             id=3,
             content_object=self.quantitative_question3,
             knowledge_component=self.knowledge_component3 if link_knowledge_components else None,
@@ -457,11 +575,14 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         )
 
         knowledge_components = (
-            KnowledgeComponentFactory(kc_id='additional_test_kc{n}'.format(n=n)) for n in range(3)
+            KnowledgeComponentFactory(
+                kc_id='additional_test_kc{n}'.format(n=n),
+                kc_name='Additional Test KC {n}'.format(n=n)
+            ) for n in range(3)
         )
 
         answer_options = (
-            AnswerOption.objects.create(
+            models.AnswerOption.objects.create(
                 content_object=quantitative_question,
                 knowledge_component=knowledge_component,
                 influences_recommendations=True,
@@ -483,7 +604,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         Assert that appropriate qualitative answers exist for each qualitative question
         in the set of default qualitative questions (as defined by `_qualitative_answer_data`).
         """
-        qualitative_answers = QualitativeAnswer.objects.all()
+        qualitative_answers = models.QualitativeAnswer.objects.all()
         self.assertEqual(qualitative_answers.count(), 2)
 
         for question, expected_answer in self._qualitative_answer_data:
@@ -496,7 +617,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         Assert that appropriate quantitative answers exist for each qualitative question
         in the set of default quantitative questions (as defined by `_quantitative_answer_data`).
         """
-        quantitative_answers = QuantitativeAnswer.objects.all()
+        quantitative_answers = models.QuantitativeAnswer.objects.all()
         self.assertEqual(quantitative_answers.count(), 3)
 
         for answer_option, expected_value, expected_custom_input in self._quantitative_answer_data:
@@ -529,10 +650,10 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         """
         Assert that submission data matches expectations.
         """
-        submissions = Submission.objects.all()
+        submissions = models.Submission.objects.all()
         self.assertEqual(submissions.count(), 1)
 
-        submission = Submission.objects.get()
+        submission = models.Submission.objects.get()
         self.assertEqual(submission.section, self.section)
         self.assertEqual(submission.learner, self.student_user)
 
@@ -553,11 +674,22 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             }
         )
 
-    def test_post_invalid_data(self):
+    def test_post_invalid_section(self):
         """
-        Test that `post` method returns appropriate response if something goes wrong
-        while processing learner profile data.
+        Test that `post` method returns appropriate response if target section does not exist.
         """
+        with patch('lpd.views.Section.objects.get') as patched_section_get:
+            patched_section_get.side_effect = models.Section.DoesNotExist
+            response = self.client.post(reverse('lpd:submit'), self.data)
+            message = json.loads(response.content)['message']
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(message, 'Target section does not exist.')
+
+    def test_post_invalid_answers(self):
+        """
+        Test that `post` method returns appropriate response if processing answer data fails.
+        """
+        # Processing qualitative answers fails
         with patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers:
             patched_process_qual_answers.side_effect = IntegrityError
             response = self.client.post(reverse('lpd:submit'), self.data)
@@ -565,6 +697,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not update learner answers.')
 
+        # Processing quantitative answers fails
         with patch('lpd.views.LPDSubmitView._process_quantitative_answers') as patched_process_quant_answers, \
                 patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers:
             patched_process_quant_answers.side_effect = IntegrityError
@@ -573,24 +706,19 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not update learner answers.')
 
-        with patch('lpd.views.LPDSubmitView._process_quantitative_answers') as patched_process_quant_answers, \
-                patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers, \
+    def test_post_score_transmission_fails(self):
+        """
+        Test that `post` method returns appropriate response
+        if transmitting scores to adaptive engine fails.
+        """
+        with patch('lpd.views.LPDSubmitView._process_quantitative_answers'), \
+                patch('lpd.views.LPDSubmitView._process_qualitative_answers'), \
                 patch('lpd.views.AdaptiveEngineAPIClient.send_learner_data') as patched_send_learner_data:
             patched_send_learner_data.side_effect = ConnectionError
             response = self.client.post(reverse('lpd:submit'), self.data)
             message = json.loads(response.content)['message']
             self.assertEqual(response.status_code, 500)
             self.assertEqual(message, 'Could not transmit scores to adaptive engine.')
-
-        with patch('lpd.views.LPDSubmitView._process_quantitative_answers') as patched_process_quant_answers, \
-                patch('lpd.views.LPDSubmitView._process_qualitative_answers') as patched_process_qual_answers, \
-                patch('lpd.views.AdaptiveEngineAPIClient.send_learner_data') as patched_send_learner_data, \
-                patch('lpd.views.LPDSubmitView._process_submission') as patched_process_submission:
-            patched_process_submission.side_effect = Section.DoesNotExist
-            response = self.client.post(reverse('lpd:submit'), self.data)
-            message = json.loads(response.content)['message']
-            self.assertEqual(response.status_code, 500)
-            self.assertEqual(message, 'Could not update submission data.')
 
     @patch('lpd.client.AdaptiveEngineAPIClient.send_learner_data')
     @patch('lpd.views.LPDSubmitView._process_quantitative_answers')
@@ -646,10 +774,10 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        qualitative_answers = QualitativeAnswer.objects.all()
+        qualitative_answers = models.QualitativeAnswer.objects.all()
         self.assertEqual(qualitative_answers.count(), 0)
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 0)
 
         # Make sure group membership calculation was skipped
@@ -687,7 +815,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self._assert_qualitative_answer_data()
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 0)
 
         # Make sure group membership calculation was skipped
@@ -718,7 +846,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 3)
 
         # Check answers individually
@@ -762,7 +890,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        qualitative_answers = QualitativeAnswer.objects.all()
+        qualitative_answers = models.QualitativeAnswer.objects.all()
         self.assertEqual(qualitative_answers.count(), 3)
 
         # Check answers individually
@@ -816,10 +944,10 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        quantitative_answers = QuantitativeAnswer.objects.all()
+        quantitative_answers = models.QuantitativeAnswer.objects.all()
         self.assertEqual(quantitative_answers.count(), 0)
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 0)
 
         # Make sure no learner data was sent to adaptive engine
@@ -852,7 +980,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 3)
 
         # Check answers individually
@@ -895,7 +1023,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 0)
 
         # Check answers individually
@@ -938,7 +1066,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 0)
 
         # Check answers individually
@@ -971,14 +1099,14 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
         patched_calculate_probabilities.return_value = self.group_probabilities
 
-        self.assertEqual(LearnerProfileDashboard.objects.count(), 1)
-        self.assertEqual(Section.objects.count(), 1)
+        self.assertEqual(models.LearnerProfileDashboard.objects.count(), 1)
+        self.assertEqual(models.Section.objects.count(), 1)
 
         # Create another LPD
         additional_lpd = self._create_additional_lpd()
 
-        self.assertEqual(LearnerProfileDashboard.objects.count(), 2)
-        self.assertEqual(Section.objects.count(), 2)
+        self.assertEqual(models.LearnerProfileDashboard.objects.count(), 2)
+        self.assertEqual(models.Section.objects.count(), 2)
 
         # Prepare submission data
         self.data['qualitative_answers'] = json.dumps(self.default_qualitative_answers)
@@ -995,7 +1123,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
         self._assert_quantitative_answer_data()
 
         # Check scores
-        scores = Score.objects.all()
+        scores = models.Score.objects.all()
         self.assertEqual(scores.count(), 6)
 
         # Check scores individually

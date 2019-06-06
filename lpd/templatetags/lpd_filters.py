@@ -41,3 +41,28 @@ def render_custom_formatting(string):
     # So we remove these tags before returning the formatted string:
     formatted_string = re.sub('</?p>', '', markdown(string))
     return mark_safe(formatted_string)
+
+
+@register.filter()
+def remove_estimates(string):
+    """
+    Remove paragraph(s) providing effort estimates from `string`.
+    """
+    return re.sub(
+        r'This section should take approximately \d+ minutes'
+        '(, though you are welcome to take as much time as you like)?.'
+        '(<br />){0,2}',
+        '',
+        string
+    )
+
+
+@register.filter()
+def remove_notes(string):
+    """
+    Remove notes from `string`.
+
+    A note is any portion of the string that is wrapped in parentheses
+    and follows the main, non-parenthesized portion of the string.
+    """
+    return re.sub(r' \(.+\)$', '', string)

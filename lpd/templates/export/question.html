@@ -1,0 +1,73 @@
+{% load lpd_filters %}
+{% load lpd_tags %}
+
+<div class="question">
+
+  <p class="question-text">
+    <span class="question-number">{{ question.section_number }}</span> {{ question.question_text|remove_notes|render_custom_formatting }}
+  </p>
+
+  {% if question.type == 'essay' %}
+    <p class="answer-text essay">{% get_answer question learner %}</p>
+  {% endif %}
+
+  {% if question.type == 'short-answer' %}
+    <p class="answer-text short-answer">{% get_answer question learner %}</p>
+  {% endif %}
+
+  {% if question.type == 'mcq' or question.type == 'mrq' %}
+    <div class="quantitative-options mc-options">
+      {% get_answer question learner as selected_options %}
+      <ul>
+        {% for answer_option in selected_options %}
+          <li>
+            {{ answer_option.option_text }}
+            {% if answer_option.allows_custom_input %}
+              {{ answer_option.custom_input }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% if question.type == 'ranking' %}
+    <div class="quantitative-options ranking-options">
+      {% get_answer question learner as ranked_options %}
+      <ul>
+        {% for answer_option in ranked_options %}
+          <li>
+            {{ answer_option.value }}: {{ answer_option.option_text }}
+            {% if answer_option.allows_custom_input %}
+              {{ answer_option.custom_input }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% if question.type == 'likert' %}
+    <div class="likert-options">
+      <table>
+        <tbody>
+          {% get_answer question learner as ranked_options %}
+          {% for answer_option in ranked_options %}
+            <tr class="likert-option">
+              <td>
+                {{ answer_option.option_text }}
+                {% if answer_option.allows_custom_input %}
+                  {{ answer_option.custom_input }}
+                {% endif %}
+              </td>
+              <td class="answer-option-value">
+                {{ answer_option.value_label }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+</div>

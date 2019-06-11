@@ -19,7 +19,7 @@
   </p>
 
   <div id="cookie_link" style="display:block">
-    <a target=_blank href="javascript:popup();">Enable loading of missing content</a><br>
+    <a target="_blank" href="javascript:popup();">Enable loading of missing content</a><br>
   </div>
 
   <div id="refresh_message" style="display:none">
@@ -30,7 +30,7 @@
 
   <script type="text/javascript">
     var popup = function() {
-        var helperWindow = window.open("{% url 'iframe_fix' %}?cookie_fix=1", "Setting cookie", "location=1,status=1,scrollbars=0,width=50,height=50");
+        var helperWindow = window.open("{% url 'iframe:iframe_fix' %}?cookie_fix=1", "Setting cookie", "location=1,status=1,scrollbars=0,width=50,height=50");
         helperWindow.onunload = function(e) {
             document.getElementById('cookie_link').style.display = 'none';
             document.getElementById('refresh_message').style.display = 'block';

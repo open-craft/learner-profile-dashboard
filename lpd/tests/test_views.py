@@ -614,7 +614,7 @@ class LPDSubmitViewTests(UserSetupMixin, TestCase):
 
     def _assert_quantitative_answer_data(self):
         """
-        Assert that appropriate quantitative answers exist for each qualitative question
+        Assert that appropriate quantitative answers exist for each quantitative question
         in the set of default quantitative questions (as defined by `_quantitative_answer_data`).
         """
         quantitative_answers = models.QuantitativeAnswer.objects.all()
